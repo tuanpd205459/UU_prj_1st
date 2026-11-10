@@ -73,7 +73,7 @@ ylabel('Y (\mum)');
 title('Original USAF 1951');
 
 
-N = 7500;  % 7500 x 7500 pixels
+N = 2000;  % 2000 x 2000 pixels
 
 %% 5.
 
