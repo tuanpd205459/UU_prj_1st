@@ -90,3 +90,10 @@ fprintf('Pattern size     : %.2f x %.2f um^2\n',...
     pattern_width*1e6,pattern_height*1e6);
 
 fprintf('\n====================================\n');
+%% SAVE OBJECT
+save('three_bar_object.mat', ...
+    'object', 'dx', 'N', ...
+    'bar_width', 'gap', 'bar_length');
+
+fprintf('\nObject saved: three_bar_object.mat\n');
+

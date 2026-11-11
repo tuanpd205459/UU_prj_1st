@@ -1,0 +1,45 @@
+Group 8:
+Element 6: Bar 1 width = 1014.74 nm
+Bar 2 width = 1014.74 nm
+Bar 3 width = 1031.65 nm
+Gap 1 = 1082.39 nm
+Gap 2 = 1048.56 nm
+Element 5: Bar 1 width = 1154.32 nm
+Bar 2 width = 1171.55 nm
+Bar 3 width = 1154.32 nm
+Gap 1 = 1171.55 nm
+Gap 2 = 1171.55 nm
+
+
+Group 9:
+Element 6: Bar 1 width = 502.48 nm
+Bar 2 width = 510.33 nm
+Bar 3 width = 526.04 nm
+Gap 1 = 541.74 nm
+Gap 2 = 518.18 nm
+
+Element 5: Bar 1 width = 582.07 nm
+Bar 2 width = 573.38 nm
+Bar 3 width = 573.38 nm
+Gap 1 = 599.45 nm
+Gap 2 = 582.07 nm
+
+Group 10:
+Element 2: Bar 1 width = 403.45 nm
+Bar 2 width = 409.75 nm
+Bar 3 width = 409.75 nm
+Gap 1 = 428.66 nm
+Gap 2 = 409.75 nm
+
+Element 4: Bar 1 width = 322.13 nm
+Bar 2 width = 322.13 nm
+Bar 3 width = 326.73 nm
+Gap 1 = 335.93 nm
+Gap 2 = 331.33 nm
+
+
+Element 6:  Bar 1 width = 271.95 nm
+Bar 2 width = 244.75 nm
+Bar 3 width = 244.75 nm
+Gap 1 = 260.29 nm
+Gap 2 = 279.72 nm

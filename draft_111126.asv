@@ -1,0 +1,98 @@
+
+clear; clc; close all;
+
+%% 1. PARAMETERS
+filename = 'USAF_220micro_104nm.png';
+dx = 104e-9;                 % Pixel size: 104 nm
+
+%% 2. READ IMAGE
+img = imread(filename);
+
+if size(img,3) == 3
+    img = rgb2gray(img);
+end
+
+amplitude = double(img);
+
+% Normalize amplitude
+amplitude = amplitude / max(amplitude(:));
+
+[Ny,Nx] = size(amplitude);
+
+%% 3. PHYSICAL COORDINATES
+x = (0:Nx-1)*dx*1e6;         % um
+y = (0:Ny-1)*dx*1e6;         % um
+
+FOV_x = Nx*dx*1e6;
+FOV_y = Ny*dx*1e6;
+
+%% 4. DISPLAY IMAGE AND SELECT TWO POINTS
+figure('Name','Select Cross Section','Color','w');
+
+imagesc(x,y,amplitude);
+axis image;
+set(gca,'YDir','reverse');
+colormap(gray);
+colorbar;
+
+xlabel('X (\mum)');
+ylabel('Y (\mum)');
+title('Select TWO points for amplitude cross-section');
+
+fprintf('Select two points on the image...\n');
+
+% Select two points
+[x_sel,y_sel] = ginput(2);
+
+%% 5. EXTRACT CROSS SECTION
+% Convert physical coordinates to pixel coordinates
+x1 = x_sel(1)/ (dx*1e6) + 1;
+y1 = y_sel(1)/ (dx*1e6) + 1;
+
+x2 = x_sel(2)/ (dx*1e6) + 1;
+y2 = y_sel(2)/ (dx*1e6) + 1;
+
+% Number of sampling points
+num_points = ceil(hypot(x2-x1,y2-y1)*2);
+
+% Interpolate amplitude along selected line
+x_line = linspace(x1,x2,num_points);
+y_line = linspace(y1,y2,num_points);
+
+profile = interp2(amplitude,x_line,y_line,'linear');
+
+% Physical distance along the line
+distance = linspace(0,hypot(x_sel(2)-x_sel(1), ...
+                             y_sel(2)-y_sel(1)),num_points);
+
+%% 6. DISPLAY SELECTED LINE
+hold on;
+plot(x_sel,y_sel,'r-o','LineWidth',1.5,...
+    'MarkerFaceColor','r');
+
+%% 7. PLOT AMPLITUDE CROSS SECTION
+figure('Name','Amplitude Cross Section','Color','w');
+
+plot(distance,profile,'b','LineWidth',1.5);
+grid on;
+
+xlabel('Distance (\mum)');
+ylabel('Normalized Amplitude');
+title('Amplitude Cross Section');
+
+xlim([0 distance(end)]);
+
+%% 8. DISPLAY PARAMETERS
+fprintf('\n========== IMAGE PARAMETERS ==========\n');
+fprintf('Image size      : %d x %d pixels\n',Nx,Ny);
+fprintf('Pixel size      : %.2f nm\n',dx*1e9);
+fprintf('FOV X           : %.3f um\n',FOV_x);
+fprintf('FOV Y           : %.3f um\n',FOV_y);
+
+fprintf('\n========== CROSS SECTION ==========\n');
+fprintf('Start point     : (%.3f, %.3f) um\n',...
+    x_sel(1),y_sel(1));
+fprintf('End point       : (%.3f, %.3f) um\n',...
+    x_sel(2),y_sel(2));
+fprintf('Profile length  : %.3f um\n',distance(end));
+fprintf('Samples         : %d\n',num_points);
