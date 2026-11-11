@@ -8,19 +8,19 @@ set(groot, 'defaultAxesFontName', 'Times New Roman', ...
            'defaultLegendInterpreter', 'latex');
 
 lambda = 633e-9;        % Wavelength (m)
-z1 = 5000e-6;           % Distance to Plane 1 (m)
-z2 = 5100e-6;           % Distance to Plane 2 (m)
+z1 = 1500e-6;           % Distance to Plane 1 (m)
+z2 = 1800e-6;           % Distance to Plane 2 (m)
 dz = z2 - z1;
 
 dx = 220e-9;            % Pixel size
 dy = dx;
-N = 9000;               % Image size
+N = 1024;               % Image size
 area = N * dx;          % Field of view (m)
 
 %% 2. GENERATE OBJECT (3-Bar Target)
 bar_width = 1100e-9;
 gap = 2000e-9;
-bar_length = 1e-6;
+bar_length = 10e-6;
 
 object = zeros(N, N);
 bar_px = round(bar_width / dx);
@@ -38,7 +38,7 @@ for k = 0:2
 end
 
 amplitude = double(object);
-phase_object = 0;
+phase_object = 1;
 ph = amplitude * phase_object;
 T = amplitude .* exp(1i * ph);
 
@@ -119,7 +119,7 @@ title(sprintf('Hologram 2 ($z_2 = %d$ $\\mu$m)', round(z2*1e6)));
 xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)'); colorbar; colormap gray;
 
 %% 6. PHASE RETRIEVAL (Plane-to-Plane)
-Iterations = 300;
+Iterations = 500;
 prop_dz = Propagator(N, lambda, area, dz);
 prop_minus_dz = Propagator(N, lambda, area, -dz);
 prop_minus_z1 = Propagator(N, lambda, area, -z1);

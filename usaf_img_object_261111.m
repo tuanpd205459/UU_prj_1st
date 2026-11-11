@@ -1,5 +1,5 @@
 clc; clear; close all;
-
+tic
 %% 1. SETTINGS & PARAMETERS
 set(groot, 'defaultAxesFontName', 'Times New Roman', ...
            'defaultTextFontName', 'Times New Roman', ...
@@ -8,8 +8,8 @@ set(groot, 'defaultAxesFontName', 'Times New Roman', ...
            'defaultLegendInterpreter', 'latex');
 
 lambda = 633e-9;        % Wavelength (m)
-z1 = 1500e-6;           % Distance to Plane 1 (m)
-z2 = 1600e-6;           % Distance to Plane 2 (m)
+z1 = 5000e-6;           % Distance to Plane 1 (m)
+z2 = 5100e-6;           % Distance to Plane 2 (m)
 dz = z2 - z1;
 
 % Read USAF image
@@ -150,7 +150,7 @@ for iter = 1:Iterations
     end
 end
 fprintf('Hoàn thành phục hồi!\n');
-
+toc
 %% 7. CROSS-SECTION EVALUATION
 amp_rec = abs(u_obj_rec);
 
