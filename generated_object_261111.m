@@ -12,14 +12,14 @@ z1 = 1500e-6;           % Distance to Plane 1 (m)
 z2 = 1800e-6;           % Distance to Plane 2 (m)
 dz = z2 - z1;
 
-dx = 220e-9;            % Pixel size
+dx = 1000e-9;            % Pixel size
 dy = dx;
 N = 1024;               % Image size
 area = N * dx;          % Field of view (m)
 
 %% 2. GENERATE OBJECT (3-Bar Target)
-bar_width = 1100e-9;
-gap = 2000e-9;
+bar_width = 5100e-9;
+gap = 5000e-9;
 bar_length = 10e-6;
 
 object = zeros(N, N);
