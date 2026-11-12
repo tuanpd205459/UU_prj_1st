@@ -8,7 +8,7 @@ set(groot, 'defaultAxesFontName', 'Times New Roman', ...
            'defaultLegendInterpreter', 'latex');
 
 lambda = 633e-9;        % Wavelength (m)
-z1 = 1500e-6;           % Distance to Plane 1 (m)
+z1 = 300e-6;           % Distance to Plane 1 (m)
 z2 = 1800e-6;           % Distance to Plane 2 (m)
 dz = z2 - z1;
 
@@ -88,6 +88,21 @@ field_z2_true = IFT2Dc(FT2Dc(T) .* prop_z2);
 hologram1 = abs(field_z1_true).^2; 
 hologram2 = abs(field_z2_true).^2;
 
+
+figure;
+plot(x_um, hologram1(round(N/2), :));
+xlabel('x (\mum)');
+ylabel('Intensity');
+title('Hologram 1 Cross-section');
+grid on;
+
+figure;
+plot(x_um, hologram2(round(N/2), :));
+xlabel('x (\mum)');
+ylabel('Intensity');
+title('Hologram 2 Cross-section');
+grid on;
+
 amp1_measured = sqrt(hologram1);
 amp2_measured = sqrt(hologram2);
 
@@ -119,7 +134,7 @@ title(sprintf('Hologram 2 ($z_2 = %d$ $\\mu$m)', round(z2*1e6)));
 xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)'); colorbar; colormap gray;
 
 %% 6. PHASE RETRIEVAL (Plane-to-Plane)
-Iterations = 500;
+Iterations = 300;
 prop_dz = Propagator(N, lambda, area, dz);
 prop_minus_dz = Propagator(N, lambda, area, -dz);
 prop_minus_z1 = Propagator(N, lambda, area, -z1);
