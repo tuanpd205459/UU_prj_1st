@@ -1,21 +1,36 @@
+%% 1. SETTINGS & PARAMETERS
 clc; clear; close all;
 
-%% 1. SETTINGS & PARAMETERS
 set(groot, 'defaultAxesFontName', 'Times New Roman', ...
            'defaultTextFontName', 'Times New Roman', ...
            'defaultAxesTickLabelInterpreter', 'latex', ...
            'defaultTextInterpreter', 'latex', ...
            'defaultLegendInterpreter', 'latex');
 
-lambda = 633e-9;        % Wavelength (m)
-z1 = 300e-6;           % Distance to Plane 1 (m)
-z2 = 1800e-6;           % Distance to Plane 2 (m)
+lambda = 633e-9;
+z1 = 300e-6;
+z2 = 1800e-6;
 dz = z2 - z1;
 
-dx = 2000e-9;            % Pixel size
+dx = 2000e-9;           % Pixel size (m)
 dy = dx;
-N = 512;               % Image size
-area = N * dx;          % Field of view (m)
+
+FOV_target = 1024e-6;   % Desired FOV (m) = 1024 um
+
+% Automatically calculate grid size
+N = round(FOV_target / dx);
+
+% Actual FOV after rounding
+FOV_x = N * dx;
+FOV_y = N * dy;
+
+area = FOV_x;
+
+fprintf('\n[Sampling & FOV]\n');
+fprintf('Pixel size : %.2f nm\n', dx*1e9);
+fprintf('Grid size  : %d x %d pixels\n', N, N);
+fprintf('FOV        : %.3f x %.3f um^2\n', ...
+        FOV_x*1e6, FOV_y*1e6);
 
 %% 2. GENERATE OBJECT (3-Bar Target)
 bar_width = 5100e-9;
