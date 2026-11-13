@@ -8,7 +8,7 @@ set(groot, 'defaultAxesFontName', 'Times New Roman', ...
            'defaultLegendInterpreter', 'latex');
 
 lambda = 633e-9;        % Wavelength (m)
-z1 = 5000e-6;           % Distance to Plane 1 (m)
+z1 = 200e-6;           % Distance to Plane 1 (m)
 z2 = 5100e-6;           % Distance to Plane 2 (m)
 dz = z2 - z1;
 

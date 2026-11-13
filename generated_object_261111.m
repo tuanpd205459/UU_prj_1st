@@ -8,14 +8,14 @@ set(groot, 'defaultAxesFontName', 'Times New Roman', ...
            'defaultLegendInterpreter', 'latex');
 
 lambda = 633e-9;
-z1 = 300e-6;
-z2 = 1800e-6;
+z1 = 1e-6;
+z2 = 2e-6;
 dz = z2 - z1;
 
-dx = 2000e-9;           % Pixel size (m)
+dx = 100e-9;           % Pixel size (m)
 dy = dx;
 
-FOV_target = 1024e-6;   % Desired FOV (m) = 1024 um
+FOV_target = 220e-6;   % Desired FOV (m) = 1024 um
 
 % Automatically calculate grid size
 N = round(FOV_target / dx);
@@ -33,8 +33,8 @@ fprintf('FOV        : %.3f x %.3f um^2\n', ...
         FOV_x*1e6, FOV_y*1e6);
 
 %% 2. GENERATE OBJECT (3-Bar Target)
-bar_width = 5100e-9;
-gap = 5000e-9;
+bar_width = 1000e-9;
+gap = 1000e-9;
 bar_length = 10e-6;
 
 object = zeros(N, N);
@@ -147,34 +147,7 @@ subplot(2,2,4);
 imagesc(x_um, y_um, hologram2); axis image;
 title(sprintf('Hologram 2 ($z_2 = %d$ $\\mu$m)', round(z2*1e6))); 
 xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)'); colorbar; colormap gray;
-%% 6. HOLOGRAM CROSS-SECTION
 
-% Select horizontal cross-section through image center
-mid_y = round(N/2);
-
-% Extract intensity profiles
-profile_holo1 = hologram1(mid_y, :);
-profile_holo2 = hologram2(mid_y, :);
-
-% Plot cross-sections
-figure('Name', 'Hologram Cross-Sections', ...
-       'Color', 'w', 'Position', [150 150 1200 500]);
-
-% Hologram 1
-subplot(1,2,1);
-plot(x_um, profile_holo1, 'b', 'LineWidth', 1.2);
-grid on;
-xlabel('$x$ ($\mu$m)');
-ylabel('Intensity (a.u.)');
-title(sprintf('Hologram 1 Cross-section ($z_1 = %.1f$ $\\mu$m)', z1*1e6));
-
-% Hologram 2
-subplot(1,2,2);
-plot(x_um, profile_holo2, 'r', 'LineWidth', 1.2);
-grid on;
-xlabel('$x$ ($\mu$m)');
-ylabel('Intensity (a.u.)');
-title(sprintf('Hologram 2 Cross-section ($z_2 = %.1f$ $\\mu$m)', z2*1e6));
 %% 6. PHASE RETRIEVAL (Plane-to-Plane)
 Iterations = 300;
 prop_dz = Propagator(N, lambda, area, dz);
