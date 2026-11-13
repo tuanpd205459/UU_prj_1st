@@ -2,13 +2,13 @@ clc; clear; close all;
 
 %% 1. SYSTEM PARAMETERS
 lambda = 633e-9;       % Wavelength (m)
-z1 = 4000e-6;          % Plane 1 (m)
-z2 = 4500e-6;          % Plane 2 (m)
+z1 = 1000e-6;          % Plane 1 (m)
+z2 = 1500e-6;          % Plane 2 (m)
 dz = z2 - z1;
 
 %% 2. SENSOR / SAMPLING PARAMETERS
-area = 2000e-6;        % FOV (m)
-dx = 2e-6;             % Tương đương N = 1000
+area = 1000e-6;        % FOV (m)
+dx = 500e-9;             % unit: m
 N = round(area/dx);
 dy = dx;
 z_max = N * dx^2 / lambda;
@@ -52,11 +52,11 @@ title('Binary Object / Transmission Function');
 xlabel('x (\mum)'); ylabel('y (\mum)');
 
 %% 6. ORIGINAL OBJECT CROSS-SECTION
-mid_y = round(N/2); 
-profile_obj_am = am(mid_y, :);
+mid_y = round(N/2)+1; 
+profile_obj_am = am(:, mid_y);
 
 figure('Name', 'Ground Truth Cross-Section', 'Color', 'w', 'Position', [150 500, 600, 400]);
-plot(x_um, profile_obj_am, 'k', 'LineWidth', 1.5);
+plot(y_um, profile_obj_am, 'k', 'LineWidth', 1.5);
 grid on; grid minor; 
 xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('Amplitude');
 title('Object Amplitude Cross-section at center ($y=0$)', 'Interpreter', 'latex');
@@ -74,6 +74,15 @@ hologram2 = abs(field_z2_true).^2;
 
 amp1_measured = sqrt(hologram1);
 amp2_measured = sqrt(hologram2);
+figure;
+imshow(flipud(rot90(hologram1)), []);
+title('simulated hologram / a.u.')
+xlabel({'x / px'})
+ylabel({'y / px'})
+axis on
+set(gca,'YDir','normal')
+colormap('gray')
+colorbar;
 
 %% 8. VISUALIZATION (HOLOGRAMS)
 figure('Name', 'Measured Holograms', 'Color', 'w', 'Position', [100 100 1000 400]);
