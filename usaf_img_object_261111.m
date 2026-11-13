@@ -2,14 +2,19 @@ clc; clear; close all;
 tic
 %% 1. SETTINGS & PARAMETERS
 set(groot, 'defaultAxesFontName', 'Times New Roman', ...
-           'defaultTextFontName', 'Times New Roman', ...
-           'defaultAxesTickLabelInterpreter', 'latex', ...
-           'defaultTextInterpreter', 'latex', ...
-           'defaultLegendInterpreter', 'latex');
+    'defaultTextFontName', 'Times New Roman', ...
+    'defaultAxesTickLabelInterpreter', 'latex', ...
+    'defaultTextInterpreter', 'latex', ...
+    'defaultLegendInterpreter', 'latex');
 
 lambda = 633e-9;        % Wavelength (m)
+<<<<<<< Updated upstream
 z1 = 5000e-6;           % Distance to Plane 1 (m)
 z2 = 5100e-6;           % Distance to Plane 2 (m)
+=======
+z1 = 100e-6;           % Distance to Plane 1 (m)
+z2 = 300e-6;           % Distance to Plane 2 (m)
+>>>>>>> Stashed changes
 dz = z2 - z1;
 
 % Read USAF image
@@ -20,22 +25,32 @@ if ndims(img) == 3
     img = rgb2gray(img);
 end
 
-% ĐẢM BẢO ẢNH VUÔNG (Cắt ảnh về dạng N x N)
-sz = min(size(img));
-img = img(1:sz, 1:sz);
+% --- BƯỚC MỚI: RESAMPLE ĐỂ ĐỔI SAMPLING RATE VỀ 2 UM ---
+dx_old = 104e-9;      % Pixel size gốc (104 nm)
+dx_new = 104e-9;     % Pixel size mô phỏng (2 um)
+
+% Tỷ lệ scale ma trận ảnh
+scale_factor = dx_old / dx_new; % = 104/2000 = 0.052
+
+% Resample ảnh (dùng 'nearest' để giữ biên sắc nét của USAF hoặc 'bicubic' để mượt)
+img_resampled = imresize(img, scale_factor, 'nearest');
+
+% ĐẢM BẢO ẢNH VUÔNG
+sz = min(size(img_resampled));
+img_resampled = img_resampled(1:sz, 1:sz);
 
 % Normalize image
-object = double(img);
+object = double(img_resampled);
 object = object / max(object(:));
 
-% Image dimensions
+% Image dimensions (Kích thước ma trận N lúc này sẽ bị thu nhỏ lại)
 [Ny, Nx] = size(object);
 N = Nx;
 
-% Pixel size
-dx = 104e-9;
+% Pixel size mô phỏng
+dx = dx_new; % 2 um
 dy = dx;
-area = dx * Nx; % Field of View
+area = dx * Nx; % Field of View vật lý được bảo toàn
 
 % Binary object
 threshold = 0.5;
@@ -82,7 +97,7 @@ field_z1_true = IFT2Dc(FT2Dc(T) .* prop_z1);
 field_z2_true = IFT2Dc(FT2Dc(T) .* prop_z2);
 
 % Cường độ (hologram) và biên độ đo được
-hologram1 = abs(field_z1_true).^2; 
+hologram1 = abs(field_z1_true).^2;
 hologram2 = abs(field_z2_true).^2;
 
 amp1_measured = sqrt(hologram1);
@@ -104,19 +119,19 @@ title('Object Phase'); xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)');
 colorbar; colormap gray;
 
 % Hologram 1
-subplot(2,2,3); 
+subplot(2,2,3);
 imagesc(x_um, y_um, hologram1); axis image;
-title(sprintf('Hologram 1 ($z_1 = %d$ $\\mu$m)', round(z1*1e6))); 
+title(sprintf('Hologram 1 ($z_1 = %d$ $\\mu$m)', round(z1*1e6)));
 xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)'); colorbar; colormap gray;
 
 % Hologram 2
-subplot(2,2,4); 
+subplot(2,2,4);
 imagesc(x_um, y_um, hologram2); axis image;
-title(sprintf('Hologram 2 ($z_2 = %d$ $\\mu$m)', round(z2*1e6))); 
+title(sprintf('Hologram 2 ($z_2 = %d$ $\\mu$m)', round(z2*1e6)));
 xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)'); colorbar; colormap gray;
 
 %% 6. PHASE RETRIEVAL (Plane-to-Plane)
-Iterations = 300;
+Iterations = 500;
 prop_dz = Propagator(N, lambda, area, dz);
 prop_minus_dz = Propagator(N, lambda, area, -dz);
 prop_minus_z1 = Propagator(N, lambda, area, -z1);
@@ -129,20 +144,20 @@ figure('Name', 'Reconstruction Progress', 'Position', [200, 200, 1000, 450]);
 for iter = 1:Iterations
     % Lan truyền z1 -> z2
     u2_sim = IFT2Dc(FT2Dc(u1) .* prop_dz);
-    u2 = amp2_measured .* exp(1i * angle(u2_sim)); 
-    
+    u2 = amp2_measured .* exp(1i * angle(u2_sim));
+
     % Lan truyền ngược z2 -> z1
-    u1_sim = IFT2Dc(FT2Dc(u2) .* prop_minus_dz); 
+    u1_sim = IFT2Dc(FT2Dc(u2) .* prop_minus_dz);
     u1 = amp1_measured .* exp(1i * angle(u1_sim));
-    
+
     % Hiển thị tiến trình
     if mod(iter, 10) == 0 || iter == 1 || iter == Iterations
         u_obj_rec = IFT2Dc(FT2Dc(u1) .* prop_minus_z1);
-        
+
         subplot(1,2,1); imagesc(x_um, y_um, abs(u_obj_rec)); axis image; colormap gray;
         title(sprintf('Rec. Amplitude (Iter: %d)', iter)); colorbar;
         xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)');
-        
+
         subplot(1,2,2); imagesc(x_um, y_um, angle(u_obj_rec)); axis image; colormap gray;
         title(sprintf('Rec. Phase (Iter: %d)', iter)); colorbar;
         xlabel('$x$ ($\mu$m)'); ylabel('$y$ ($\mu$m)');
@@ -188,27 +203,27 @@ title('Amplitude Cross-section');
 %                               FUNCTIONS
 % =========================================================================
 function p = Propagator(N, lambda, area, z)
-    [X, Y] = meshgrid(1:N, 1:N);
-    alpha = lambda * (Y - N/2 - 1) / area;
-    beta  = lambda * (X - N/2 - 1) / area;
-    mask = (alpha.^2 + beta.^2) <= 1;
-    
-    p = zeros(N, N);
-    p(mask) = exp(2 * pi * 1i * z * sqrt(1 - alpha(mask).^2 - beta(mask).^2) / lambda);
+[X, Y] = meshgrid(1:N, 1:N);
+alpha = lambda * (Y - N/2 - 1) / area;
+beta  = lambda * (X - N/2 - 1) / area;
+mask = (alpha.^2 + beta.^2) <= 1;
+
+p = zeros(N, N);
+p(mask) = exp(2 * pi * 1i * z * sqrt(1 - alpha(mask).^2 - beta(mask).^2) / lambda);
 end
 
 function out = FT2Dc(in)
-    [Nx, Ny] = size(in);
-    vx = (-1).^(1:Nx).'; 
-    vy = (-1).^(1:Ny);   
-    f1 = vx * vy;        
-    out = f1 .* fft2(f1 .* in);
+[Nx, Ny] = size(in);
+vx = (-1).^(1:Nx).';
+vy = (-1).^(1:Ny);
+f1 = vx * vy;
+out = f1 .* fft2(f1 .* in);
 end
 
 function out = IFT2Dc(in)
-    [Nx, Ny] = size(in);
-    vx = (-1).^(1:Nx).'; 
-    vy = (-1).^(1:Ny);   
-    f1 = vx * vy;        
-    out = f1 .* ifft2(f1 .* in);
+[Nx, Ny] = size(in);
+vx = (-1).^(1:Nx).';
+vy = (-1).^(1:Ny);
+f1 = vx * vy;
+out = f1 .* ifft2(f1 .* in);
 end
