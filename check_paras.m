@@ -2,8 +2,8 @@ clc; clear; close all;
 
 %% 1. SYSTEM PARAMETERS
 lambda = 633e-9;       % Wavelength (m)
-z1 = 1000e-6;          % Plane 1 (m)
-z2 = 1500e-6;          % Plane 2 (m)
+z1 = 1500e-6;          % Plane 1 (m)
+z2 = 2000e-6;          % Plane 2 (m)
 dz = z2 - z1;
 
 %% 2. SENSOR / SAMPLING PARAMETERS
@@ -32,35 +32,115 @@ fprintf('dz          : %.2f um\n', dz*1e6);
 fprintf('z_max       : %.2f mm\n', z_max*1e3);
 
 %% 3. CREATE OBJECT (Two Point Objects)
-% Uniform background
-object = ones(N,N);
-% Two opaque points
-object(round(N/2)+1, round(N/2)+1) = 0;
-object(round(N/2)+7, round(N/2)+1) = 0;
+
+% ===== OBJECT PARAMETERS (UNIT: nm) =====
+object_size_nm = 2000;       % Diameter / width of each object
+center_distance_nm = 400;  % Center-to-center distance
+
+% Object shape: 'circle' or 'square'
+object_shape = 'circle';
+
+% Convert physical dimensions to meters
+object_size = object_size_nm * 1e-9;
+center_distance = center_distance_nm * 1e-9;
+
+% Physical coordinates
+[X, Y] = meshgrid(x, y);
+
+% Define object centers (symmetric around origin)
+x1 = -center_distance/2;
+x2 =  center_distance/2;
+y1 = 0;
+y2 = 0;
+
+% Initialize transparent background
+object = ones(N, N);
+
+% ===== CREATE OBJECT 1 =====
+switch lower(object_shape)
+    case 'circle'
+        mask1 = (X-x1).^2 + (Y-y1).^2 <= (object_size/2)^2;
+        mask2 = (X-x2).^2 + (Y-y2).^2 <= (object_size/2)^2;
+
+    case 'square'
+        mask1 = abs(X-x1) <= object_size/2 & ...
+                abs(Y-y1) <= object_size/2;
+
+        mask2 = abs(X-x2) <= object_size/2 & ...
+                abs(Y-y2) <= object_size/2;
+
+    otherwise
+        error('Unknown object shape.');
+end
+
+% Opaque objects
+object(mask1 | mask2) = 0;
+
+% ===== DISPLAY ACTUAL DIMENSIONS =====
+fprintf('\n========== OBJECT PARAMETERS ==========\n');
+fprintf('Shape              : %s\n', object_shape);
+fprintf('Object size        : %.1f nm\n', object_size_nm);
+fprintf('Center distance    : %.1f nm\n', center_distance_nm);
+fprintf('Edge-to-edge gap   : %.1f nm\n', ...
+    center_distance_nm-object_size_nm);
+fprintf('Object size (pixel): %.2f pixels\n', object_size/dx);
+fprintf('Center distance(px): %.2f pixels\n', center_distance/dx);
+fprintf('=======================================\n');
+
 
 %% 4. TRANSMISSION FUNCTION
-% Sử dụng trực tiếp object làm hàm truyền qua (như code tham khảo)
-t = object; 
 
-% Biến am để dùng cho việc đánh giá mặt cắt về sau
-am = abs(t); 
+I0 = 100;
+A0 = sqrt(I0);
+
+% Object transmission
+t = object;
+
+% Incident field amplitude
+U0 = A0;
+
+% Total field immediately after object
+u_object = U0 * t;
+
+am = abs(u_object);
 
 %% 5. DISPLAY OBJECT
-figure('Name', 'Object Details', 'Color', 'w', 'Position', [100 200, 500, 450]);
-imagesc(x_um, y_um, object); axis image; colormap gray; colorbar;
-title('Binary Object / Transmission Function'); 
-xlabel('x (\mum)'); ylabel('y (\mum)');
+
+figure('Name', 'Object Details', 'Color', 'w');
+
+imagesc(x_um, y_um, object);
+axis image;
+colormap gray;
+colorbar;
+
+xlim([-1, 1]);
+ylim([-1, 1]);
+
+title('Binary Object');
+xlabel('x (\mum)');
+ylabel('y (\mum)');
 
 %% 6. ORIGINAL OBJECT CROSS-SECTION
-mid_y = round(N/2)+1; 
-profile_obj_am = am(:, mid_y);
 
-figure('Name', 'Ground Truth Cross-Section', 'Color', 'w', 'Position', [150 500, 600, 400]);
-plot(y_um, profile_obj_am, 'k', 'LineWidth', 1.5);
-grid on; grid minor; 
-xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('Amplitude');
-title('Object Amplitude Cross-section at center ($y=0$)', 'Interpreter', 'latex');
-xlim([-50, 50]); % Zooming into the center 100um
+mid_y = round(N/2) + 1;
+
+profile_obj_am = am(mid_y, :);
+
+figure('Name', 'Ground Truth Cross-section', ...
+       'Color', 'w');
+
+plot(x_um, profile_obj_am, 'k', 'LineWidth', 1.5);
+
+grid on;
+grid minor;
+
+xlabel('x (\mum)');
+ylabel('Amplitude (a.u.)');
+
+title('Object Amplitude Cross-section');
+
+xlim([-1, 1]);
+ylim([-0.5, A0 + 1]);
 
 %% 7. HOLOGRAM SIMULATION
 prop_z1 = Propagator_BLASM(N, lambda, area, dx, z1);
