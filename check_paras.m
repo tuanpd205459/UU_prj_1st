@@ -1,3 +1,4 @@
+
 clc; clear; close all;
 
 %% 1. SYSTEM PARAMETERS
@@ -11,11 +12,13 @@ area = 1000e-6;        % FOV (m)
 dx = 500e-9;           % Pixel pitch (m)
 N = round(area/dx);
 dy = dx;
+
 z_max = N * dx^2 / lambda;
 
-% Define Coordinates (chuẩn hóa chính xác cho lưới chẵn N)
+% Define coordinates
 x = (-N/2 : N/2 - 1) * dx;
 y = (-N/2 : N/2 - 1) * dy;
+
 x_um = x * 1e6;
 y_um = y * 1e6;
 
@@ -31,33 +34,67 @@ fprintf('z2          : %.2f um\n', z2*1e6);
 fprintf('dz          : %.2f um\n', dz*1e6);
 fprintf('z_max       : %.2f mm\n', z_max*1e3);
 
-%% 3. CREATE OBJECT (Two Point Objects)
-object_size_nm = 1000;       % Diameter / width of each object (nm)
-center_distance_nm = 2000;  % Center-to-center distance (nm)
-object_shape = 'square';    % 'circle' or 'square'
+
+%% 3. DIFFRACTION LIMIT CALCULATION
+NA1 = sin(atan(area/(2*z1)));
+NA2 = sin(atan(area/(2*z2)));
+
+d_Abbe_1 = lambda / (2*NA1);
+d_Abbe_2 = lambda / (2*NA2);
+
+fprintf('\n--- Numerical Aperture ---\n');
+fprintf('NA at z1               : %.5f\n', NA1);
+fprintf('NA at z2               : %.5f\n', NA2);
+
+fprintf('\n--- Abbe Limit ---\n');
+fprintf('Resolution at z1       : %.2f nm\n', d_Abbe_1*1e9);
+fprintf('Resolution at z2       : %.2f nm\n', d_Abbe_2*1e9);
+
+
+%% 4. CREATE OBJECT (Two Point Objects)
+
+object_size_nm = 500;         
+center_distance_nm = 500+2000;
+object_shape = 'square';      % 'circle' or 'square'
 
 object_size = object_size_nm * 1e-9;
 center_distance = center_distance_nm * 1e-9;
 
 [X, Y] = meshgrid(x, y);
 
-% Define object centers (symmetric around origin along X-axis)
-x1 = -center_distance/2;
-x2 =  center_distance/2;
-y1 = 0;
-y2 = 0;
+% Define object centers
+x1_obj = -center_distance/2;
+x2_obj =  center_distance/2;
+
+y1_obj = 0;
+y2_obj = 0;
 
 object = ones(N, N);
+
 switch lower(object_shape)
+
     case 'circle'
-        mask1 = (X - x1).^2 + (Y - y1).^2 <= (object_size/2)^2;
-        mask2 = (X - x2).^2 + (Y - y2).^2 <= (object_size/2)^2;
+
+        mask1 = (X - x1_obj).^2 + (Y - y1_obj).^2 ...
+                <= (object_size/2)^2;
+
+        mask2 = (X - x2_obj).^2 + (Y - y2_obj).^2 ...
+                <= (object_size/2)^2;
+
     case 'square'
-        mask1 = abs(X - x1) <= object_size/2 & abs(Y - y1) <= object_size/2;
-        mask2 = abs(X - x2) <= object_size/2 & abs(Y - y2) <= object_size/2;
+
+        mask1 = abs(X - x1_obj) <= object_size/2 & ...
+                abs(Y - y1_obj) <= object_size/2;
+
+        mask2 = abs(X - x2_obj) <= object_size/2 & ...
+                abs(Y - y2_obj) <= object_size/2;
+
     otherwise
+
         error('Unknown object shape.');
+
 end
+
 object(mask1 | mask2) = 0;
 
 fprintf('\n========== OBJECT PARAMETERS ==========\n');
@@ -69,182 +106,367 @@ fprintf('Object size (pixel): %.2f pixels\n', object_size/dx);
 fprintf('Center distance(px): %.2f pixels\n', center_distance/dx);
 fprintf('=======================================\n');
 
-%% 4. TRANSMISSION FUNCTION
+
+%% 5. TRANSMISSION FUNCTION
+
 I0 = 1;
 A0 = sqrt(I0);
+
 t = object;
 U0 = A0;
-u_object = U0 * t;     % Trường phức ngay sau vật thể (biên độ nền = A0)
+
+u_object = U0 * t;
+
 am = abs(u_object);
 
-%% 5. DISPLAY OBJECT
-% Mở rộng vùng hiển thị [-3, 3] um để nhìn trọn vẹn 2 vật thể tại +/- 1.2 um
-% view_lim = 3; 
-figure('Name', 'Object Details', 'Color', 'w');
-imagesc(x_um, y_um, am);
-axis image; colormap gray; colorbar;
-% xlim([-view_lim, view_lim]);
-% ylim([-view_lim, view_lim]);
-title('Object Amplitude Distribution');
-xlabel('x (\mum)'); ylabel('y (\mum)');
 
-%% 6. ORIGINAL OBJECT CROSS-SECTION
+%% 6. DISPLAY OBJECT
+
+figure('Name', 'Object Details', 'Color', 'w');
+
+imagesc(x_um, y_um, am);
+
+axis image;
+colormap gray;
+colorbar;
+
+title('Object Amplitude Distribution');
+xlabel('x (\mum)');
+ylabel('y (\mum)');
+
+
+%% 7. ORIGINAL OBJECT CROSS-SECTION
+
 [~, mid_y] = min(abs(y));
-profile_obj_am = am(mid_y, :); 
+
+profile_obj_am = am(mid_y, :);
 
 figure('Name', 'Ground Truth Cross-section', 'Color', 'w');
-stairs(x_um, am(mid_y,:), 'LineWidth', 2);
-grid on; grid minor;
-xlabel('x (\mum)'); ylabel('Amplitude (a.u.)');
-title('Object Amplitude Cross-section (y = 0)');
-% xlim([-view_lim, view_lim]);
-% ylim([-0.5, A0 + 1]);
 
-%% 7. HOLOGRAM SIMULATION
+stairs(x_um, profile_obj_am, 'LineWidth', 2);
+
+grid on;
+grid minor;
+
+xlabel('x (\mum)');
+ylabel('Amplitude (a.u.)');
+
+title('Ground Truth Amplitude Cross-section (y = 0)');
+
+
+%% 8. HOLOGRAM SIMULATION
+
 prop_z1 = Propagator_BLASM(N, lambda, dx, z1);
 prop_z2 = Propagator_BLASM(N, lambda, dx, z2);
 
-% SỬA LỖI: Truyền trường u_object (đã nhân A0) thay vì chỉ truyền t
+% Propagation from object plane to z1 and z2
+
 field_z1_true = IFT2Dc(FT2Dc(u_object) .* prop_z1);
+
 field_z2_true = IFT2Dc(FT2Dc(u_object) .* prop_z2);
 
-hologram1 = abs(field_z1_true).^2; 
+% Calculate holograms
+
+hologram1 = abs(field_z1_true).^2;
 hologram2 = abs(field_z2_true).^2;
+
+% Measured amplitudes
 
 amp1_measured = sqrt(hologram1);
 amp2_measured = sqrt(hologram2);
 
-%% 8. VISUALIZATION (HOLOGRAMS)
-figure('Name', 'Measured Holograms', 'Color', 'w', 'Position', [100 100 1000 400]);
-subplot(1,2,1); 
-imagesc(x_um, y_um, hologram1); axis image;
-title(sprintf('Hologram 1 ($z_1 = %d$ $\\mu$m)', round(z1*1e6)), 'Interpreter', 'latex'); 
-xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('$y$ ($\mu$m)', 'Interpreter', 'latex'); 
-colorbar; colormap gray;
 
-subplot(1,2,2); 
-imagesc(x_um, y_um, hologram2); axis image;
-title(sprintf('Hologram 2 ($z_2 = %d$ $\\mu$m)', round(z2*1e6)), 'Interpreter', 'latex'); 
-xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('$y$ ($\mu$m)', 'Interpreter', 'latex'); 
-colorbar; colormap gray;
+%% 9. VISUALIZATION (HOLOGRAMS)
 
-%% 9. HOLOGRAM CROSS-SECTION
+figure('Name', 'Measured Holograms', ...
+       'Color', 'w', ...
+       'Position', [100 100 1000 400]);
+
+subplot(1,2,1);
+
+imagesc(x_um, y_um, hologram1);
+
+axis image;
+title(sprintf('Hologram 1 (z_1 = %d \\mum)', round(z1*1e6)));
+
+xlabel('x (\mum)');
+ylabel('y (\mum)');
+
+colorbar;
+colormap gray;
+
+
+subplot(1,2,2);
+
+imagesc(x_um, y_um, hologram2);
+
+axis image;
+title(sprintf('Hologram 2 (z_2 = %d \\mum)', round(z2*1e6)));
+
+xlabel('x (\mum)');
+ylabel('y (\mum)');
+
+colorbar;
+colormap gray;
+
+
+%% 10. HOLOGRAM CROSS-SECTION
+
 profile_holo1 = hologram1(mid_y, :);
 profile_holo2 = hologram2(mid_y, :);
 
-figure('Name', 'Hologram Cross-Sections', 'Color', 'w', 'Position', [150 150 1000 400]);
+figure('Name', 'Hologram Cross-Sections', ...
+       'Color', 'w', ...
+       'Position', [150 150 1000 400]);
+
 subplot(1,2,1);
-plot(x_um, profile_holo1, 'b', 'LineWidth', 1.2); grid on;
-xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('Intensity (a.u.)');
-title(sprintf('Hologram 1 Cross-section ($z_1 = %.1f$ $\\mu$m)', z1*1e6), 'Interpreter', 'latex');
+
+plot(x_um, profile_holo1, 'b', 'LineWidth', 1.2);
+
+grid on;
+grid minor;
+
+xlabel('x (\mum)');
+ylabel('Intensity (a.u.)');
+
+title(sprintf('Hologram 1 Cross-section (z_1 = %.1f \\mum)', z1*1e6));
+
 
 subplot(1,2,2);
-plot(x_um, profile_holo2, 'r', 'LineWidth', 1.2); grid on;
-xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('Intensity (a.u.)');
-title(sprintf('Hologram 2 Cross-section ($z_2 = %.1f$ $\\mu$m)', z2*1e6), 'Interpreter', 'latex');
 
-%% 10. PHASE RETRIEVAL (Plane-to-Plane Gerchberg-Saxton)
-Iterations = 100;
-prop_dz       = Propagator_BLASM(N, lambda, dx,  dz);
+plot(x_um, profile_holo2, 'r', 'LineWidth', 1.2);
+
+grid on;
+grid minor;
+
+xlabel('x (\mum)');
+ylabel('Intensity (a.u.)');
+
+title(sprintf('Hologram 2 Cross-section (z_2 = %.1f \\mum)', z2*1e6));
+
+
+%% 11. PHASE RETRIEVAL
+% Plane-to-Plane Gerchberg-Saxton Algorithm
+
+Iterations = 1000;
+
+prop_dz       = Propagator_BLASM(N, lambda, dx, dz);
 prop_minus_dz = Propagator_BLASM(N, lambda, dx, -dz);
 prop_minus_z1 = Propagator_BLASM(N, lambda, dx, -z1);
 
-% Khởi tạo pha ban đầu bằng 0
-u1 = amp1_measured; 
+% Initial phase
+
+u1 = amp1_measured;
 
 fprintf('\nRunning Phase Retrieval loop (%d iterations)...\n', Iterations);
-figure('Name', 'Reconstruction Progress', 'Position', [200, 200, 1000, 450], 'Color', 'w');
+
+figure('Name', 'Reconstruction Progress', ...
+       'Position', [200 200 1000 450], ...
+       'Color', 'w');
+
 
 for iter = 1:Iterations
-    % Truyền từ z1 -> z2
+
+    % Propagation from z1 to z2
+
     u2_sim = IFT2Dc(FT2Dc(u1) .* prop_dz);
-    u2 = amp2_measured .* exp(1i * angle(u2_sim)); 
-    
-    % Truyền ngược từ z2 -> z1
-    u1_sim = IFT2Dc(FT2Dc(u2) .* prop_minus_dz); 
+
+    u2 = amp2_measured .* exp(1i * angle(u2_sim));
+
+
+    % Back propagation from z2 to z1
+
+    u1_sim = IFT2Dc(FT2Dc(u2) .* prop_minus_dz);
+
     u1 = amp1_measured .* exp(1i * angle(u1_sim));
-    
+
+
+    % Display reconstruction progress
+
     if mod(iter, 10) == 0 || iter == 1 || iter == Iterations
+
         u_obj_rec = IFT2Dc(FT2Dc(u1) .* prop_minus_z1);
-        
-        subplot(1,2,1); 
-        imagesc(x_um, y_um, abs(u_obj_rec)); axis image; colormap gray;
-%         xlim([-view_lim, view_lim]); ylim([-view_lim, view_lim]);
-        title(sprintf('Rec. Amplitude (Iter: %d)', iter)); colorbar;
-        xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('$y$ ($\mu$m)', 'Interpreter', 'latex');
-        
-        subplot(1,2,2); 
-        imagesc(x_um, y_um, angle(u_obj_rec)); axis image; colormap gray;
-%         xlim([-view_lim, view_lim]); ylim([-view_lim, view_lim]);
-        title(sprintf('Rec. Phase (Iter: %d)', iter)); colorbar;
-        xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('$y$ ($\mu$m)', 'Interpreter', 'latex');
+
+        subplot(1,2,1);
+
+        imagesc(x_um, y_um, abs(u_obj_rec));
+
+        axis image;
+        colormap gray;
+
+        title(sprintf('Reconstructed Amplitude (Iter: %d)', iter));
+
+        colorbar;
+
+        xlabel('x (\mum)');
+        ylabel('y (\mum)');
+
+
+        subplot(1,2,2);
+
+        imagesc(x_um, y_um, angle(u_obj_rec));
+
+        axis image;
+        colormap gray;
+
+        title(sprintf('Reconstructed Phase (Iter: %d)', iter));
+
+        colorbar;
+
+        xlabel('x (\mum)');
+        ylabel('y (\mum)');
+
         drawnow;
+
     end
+
 end
+
 fprintf('Reconstruction complete!\n');
 
-%% 11. CROSS-SECTION EVALUATION (Tự động tại y = 0 & Tùy chọn vẽ tay)
+
+%% 12. INTERACTIVE CROSS-SECTION EVALUATION
+
+% Reconstructed amplitude
+
 amp_rec = abs(u_obj_rec);
-profile_rec_auto = amp_rec(mid_y, :);
 
-% Đánh giá tự động qua tâm hai vật thể (tránh lỗi treo khi chưa vẽ tay)
-figure('Name', 'Automatic Cross-section Evaluation', 'Color', 'w');
-plot(x_um, profile_obj_am, 'Color', '#0072BD', 'LineWidth', 1.8); hold on;
-plot(x_um, profile_rec_auto, 'Color', '#D95319', 'LineWidth', 1.5, 'LineStyle', '--');
-grid on; 
-% xlim([-view_lim, view_lim]);
-xlabel('$x$ ($\mu$m)', 'Interpreter', 'latex'); ylabel('Amplitude (a.u.)');
-legend('Ground Truth', 'Reconstruction');
-title('Amplitude Cross-section Evaluation (y = 0)');
 
-% Nếu vẫn muốn vẽ đường cắt tương tác bằng chuột, mở comment khối dưới đây:
+% Display reconstructed amplitude
 
-fig = figure('Color','w', 'Name','Select Cross-section', 'Position', [300, 300, 800, 600]);
+fig = figure('Color', 'w', ...
+             'Name', 'Select Cross-section', ...
+             'Position', [300 300 800 600]);
+
 ax = axes(fig);
-imagesc(ax, x_um, y_um, amp_rec); axis(ax,'image'); colormap(ax,gray); colorbar(ax);
-% xlim(ax, [-view_lim, view_lim]); ylim(ax, [-view_lim, view_lim]);
-title(ax,'Reconstructed amplitude (Cross-section)');
-h = drawline(ax,'Color','r','LineWidth',1.5);
+
+imagesc(ax, x_um, y_um, amp_rec);
+
+axis(ax, 'image');
+colormap(ax, gray);
+colorbar(ax);
+
+title(ax, 'Reconstructed Amplitude - Select Cross-section');
+
+xlabel(ax, 'x (\mum)');
+ylabel(ax, 'y (\mum)');
+
+
+% Select cross-section using mouse
+
+h = drawline(ax, 'Color', 'r', 'LineWidth', 1.5);
+
 wait(h);
+
+
 if isvalid(h)
+
+    % Get selected line coordinates
+
     pos = h.Position;
+
     x_line = linspace(pos(1,1), pos(2,1), 500);
     y_line = linspace(pos(1,2), pos(2,2), 500);
-    profile_rec = interp2(x_um, y_um, amp_rec, x_line, y_line, 'linear');
-    profile_true = interp2(x_um, y_um, am, x_line, y_line, 'linear'); 
-    distance = hypot(x_line - x_line(1), y_line - y_line(1));
-    figure('Color','w');
-    plot(distance, profile_true, 'Color', '#0072BD', 'LineWidth', 1.5); hold on;
-    plot(distance, profile_rec, 'Color', '#D95319', 'LineWidth', 1.5, 'LineStyle', '--');
-    grid on; xlabel('Distance ($\mu$m)', 'Interpreter', 'latex'); ylabel('Amplitude (a.u.)');
+
+
+    % Ground Truth
+    % Nearest-neighbor interpolation to preserve pixel values
+
+    profile_true = interp2(x_um, y_um, am, ...
+                           x_line, y_line, 'nearest');
+
+
+    % Reconstruction
+    % Linear interpolation for continuous profile
+
+    profile_rec = interp2(x_um, y_um, amp_rec, ...
+                          x_line, y_line, 'linear');
+
+
+    % Distance along selected cross-section
+
+    distance = hypot(x_line - x_line(1), ...
+                     y_line - y_line(1));
+
+
+    % Plot comparison
+
+    figure('Color', 'w', ...
+           'Name', 'Cross-section Comparison');
+
+    % Ground Truth: Staircase plot
+
+    stairs(distance, profile_true, ...
+           'Color', '#0072BD', ...
+           'LineWidth', 1.5);
+
+    hold on;
+
+
+    % Reconstruction: Continuous plot
+
+    plot(distance, profile_rec, ...
+         'Color', '#D95319', ...
+         'LineWidth', 1.5, ...
+         'LineStyle', '--');
+
+
+    grid on;
+    grid minor;
+
+    xlabel('Distance (\mum)');
+    ylabel('Amplitude (a.u.)');
+
     legend('Ground Truth', 'Reconstruction');
+
+    title('Cross-section Comparison');
+
 end
 
 
 %% =========================================================================
 %                               FUNCTIONS
 % =========================================================================
+
 function p = Propagator_BLASM(N, lambda, dx, z)
-    % Lưới tần số không gian chuẩn hóa khớp với fftshift
+
+    % Spatial frequency grid
+
     df = 1 / (N * dx);
+
     f = (-N/2 : N/2 - 1) * df;
+
     [FX, FY] = meshgrid(f, f);
-    
+
+
     alpha = lambda * FX;
     beta  = lambda * FY;
-    
-    % Band-Limited Angular Spectrum Method (BL-ASM)
+
+
+    % Band-Limited Angular Spectrum Method
+
     limit = 1 / sqrt((2 * abs(z) / (N * dx))^2 + 1);
+
     mask = (alpha.^2 + beta.^2) <= limit^2;
-    
+
+
     p = zeros(N, N);
-    p(mask) = exp(1i * 2 * pi * (z / lambda) * sqrt(1 - alpha(mask).^2 - beta(mask).^2));
+
+    p(mask) = exp(1i * 2 * pi * (z / lambda) * ...
+              sqrt(1 - alpha(mask).^2 - beta(mask).^2));
+
 end
+
 
 function out = FT2Dc(in)
+
     out = fftshift(fft2(ifftshift(in)));
+
 end
 
+
 function out = IFT2Dc(in)
+
     out = fftshift(ifft2(ifftshift(in)));
+
 end
