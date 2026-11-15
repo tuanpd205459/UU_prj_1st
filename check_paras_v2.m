@@ -1,14 +1,19 @@
 clc; clear; close all;
+tic
+%% 1. SYSTEM PARAMETERS
+clc; clear; close all;
 
 %% 1. SYSTEM PARAMETERS
-lambda = 633e-9;       % Wavelength (m)
-z1 = 1500e-6;          % Plane 1 (m)
-z2 = 2000e-6;          % Plane 2 (m)
+lambda = 405e-9;        % Wavelength (m)
+diffractive_index = 1;
+lambda = lambda / diffractive_index;
+z1 = 1000e-6;            % Plane 1 (m)
+z2 = 1500e-6;            % Plane 2 (m)
 dz = z2 - z1;
 
 %% 2. SENSOR / SAMPLING PARAMETERS
-area = 500e-6;        % FOV (m)
-dx = 100e-9;           % Pixel pitch (m)
+area = 500e-6;          % FOV (m)
+dx = 100e-9;            % Pixel pitch (m)
 N = round(area/dx);
 dy = dx;
 
@@ -18,10 +23,22 @@ z_max = N * dx^2 / lambda; % Fresnel/ASM aliasing transition distance
 NA_Nyq = lambda / (2 * dx);
 if NA_Nyq < 1
     z_crit = (area / 2) * sqrt(1 - NA_Nyq^2) / NA_Nyq;
-    % Tuong duong: z_crit = (N * dx^2 / lambda) * sqrt(1 - (lambda/(2*dx))^2);
 else
     z_crit = 0; % Evanescent regime (dx <= lambda/2)
 end
+
+%% 3. NUMERICAL APERTURE (NA) & LATERAL RESOLUTION (R)
+% Geometric NA at z1 and z2
+NA_geo_z1 = 1 / sqrt(1 + (2 * z1 / area)^2);
+NA_geo_z2 = 1 / sqrt(1 + (2 * z2 / area)^2);
+
+% Effective NA (bounded by physical medium limit n=1, NA_geo, and NA_Nyq)
+NA_eff_z1 = min([diffractive_index, NA_geo_z1, NA_Nyq]);
+NA_eff_z2 = min([diffractive_index, NA_geo_z2, NA_Nyq]);
+
+% Lateral Resolution R = lambda / (2 * NA_eff)
+R_z1 = lambda / (2 * NA_eff_z1);
+R_z2 = lambda / (2 * NA_eff_z2);
 
 % Define coordinates
 x = (-N/2 : N/2 - 1) * dx;
@@ -30,6 +47,7 @@ y = (-N/2 : N/2 - 1) * dy;
 x_um = x * 1e6;
 y_um = y * 1e6;
 
+%% 4. DISPLAY PARAMETERS & RESOLUTION DIAGNOSTICS
 fprintf('Wavelength  : %.1f nm\n', lambda*1e9);
 fprintf('Grid size   : %d x %d pixels\n', N, N);
 fprintf('Pixel pitch : %.4f um\n', dx*1e6);
@@ -39,38 +57,26 @@ fprintf('z2          : %.2f um\n', z2*1e6);
 fprintf('dz          : %.2f um\n', dz*1e6);
 fprintf('z_max       : %.2f mm\n', z_max*1e3);
 fprintf('z_crit      : %.2f um (Max z for R = dx)\n', z_crit*1e6);
+fprintf('NA_Nyq      : %.5f\n', NA_Nyq);
+fprintf('NA at z1    : %.5f (Effective: %.5f)\n', NA_geo_z1, NA_eff_z1);
+fprintf('NA at z2    : %.5f (Effective: %.5f)\n', NA_geo_z2, NA_eff_z2);
+fprintf('Resolution at z1 : %.2f nm\n', R_z1*1e9);
+fprintf('Resolution at z2 : %.2f nm\n', R_z2*1e9);
 
-%% 3. DIFFRACTION LIMIT CALCULATION
-NA1 = sin(atan(area/(2*z1)));
-NA2 = sin(atan(area/(2*z2)));
-
-% Effective NA (bounded by both sensor aperture and Nyquist sampling)
-NA1_eff = min(NA1, NA_Nyq);
-NA2_eff = min(NA2, NA_Nyq);
-
-d_Abbe_1 = lambda / (2*NA1_eff);
-d_Abbe_2 = lambda / (2*NA2_eff);
-
-fprintf('NA_Nyq                 : %.5f\n', NA_Nyq);
-fprintf('NA at z1               : %.5f (Effective: %.5f)\n', NA1, NA1_eff);
-fprintf('NA at z2               : %.5f (Effective: %.5f)\n', NA2, NA2_eff);
-fprintf('Resolution at z1       : %.2f nm\n', d_Abbe_1*1e9);
-fprintf('Resolution at z2       : %.2f nm\n', d_Abbe_2*1e9);
-
-if z1 > z_crit || z2 > z_crit
+% Warning check for limiting regime
+if NA_Nyq < min(NA_geo_z1, NA_geo_z2)
+    fprintf('[WARNING] Sampling-limited: R is bounded by pixel pitch (dx = %.1f nm).\n', dx*1e9);
+elseif max(z1, z2) > z_crit
     fprintf('[WARNING] z1 or z2 > z_crit: Resolution is aperture-limited (> %.1f nm).\n', dx*1e9);
-else
-    fprintf('[OK] Both planes <= z_crit: Nyquist limit (R = %.1f nm) is achievable.\n', dx*1e9);
 end
-
 
 %% 4. CREATE OBJECT (Two Point Objects)
 object_shape = 'rectangle';      % 'circle' or 'square'
 
-object_width_nm  = 500;       % Width of each slit (nm)
+object_width_nm  = 200;       % Width of each slit (nm)
 object_length_nm = 5000;      % Length of each slit (nm)
 
-center_distance_nm = 500 + 500;
+center_distance_nm = 200 + 200;
 
 object_width  = object_width_nm  * 1e-9;
 object_length = object_length_nm * 1e-9;
@@ -321,109 +327,158 @@ for iter = 1:Iterations
     end
 
 end
-
+toc
 fprintf('Reconstruction complete!\n');
 
 
 %% 12. INTERACTIVE CROSS-SECTION EVALUATION
 
-% Reconstructed amplitude
+% % Reconstructed amplitude
+% 
+% amp_rec = abs(u_obj_rec);
+% 
+% 
+% % Display reconstructed amplitude
+% 
+% fig = figure('Color', 'w', ...
+%              'Name', 'Select Cross-section', ...
+%              'Position', [300 300 800 600]);
+% 
+% ax = axes(fig);
+% 
+% imagesc(ax, x_um, y_um, amp_rec);
+% 
+% axis(ax, 'image');
+% colormap(ax, gray);
+% colorbar(ax);
+% 
+% title(ax, 'Reconstructed Amplitude - Select Cross-section');
+% 
+% xlabel(ax, 'x (\mum)');
+% ylabel(ax, 'y (\mum)');
+% 
+% 
+% % Select cross-section using mouse
+% 
+% h = drawline(ax, 'Color', 'r', 'LineWidth', 1.5);
+% 
+% wait(h);
+% 
+% 
+% if isvalid(h)
+% 
+%     % Get selected line coordinates
+% 
+%     pos = h.Position;
+% 
+%     x_line = linspace(pos(1,1), pos(2,1), 500);
+%     y_line = linspace(pos(1,2), pos(2,2), 500);
+% 
+% 
+%     % Ground Truth
+%     % Nearest-neighbor interpolation to preserve pixel values
+% 
+%     profile_true = interp2(x_um, y_um, am, ...
+%                            x_line, y_line, 'nearest');
+% 
+% 
+%     % Reconstruction
+%     % Linear interpolation for continuous profile
+% 
+%     profile_rec = interp2(x_um, y_um, amp_rec, ...
+%                           x_line, y_line, 'linear');
+% 
+% 
+%     % Distance along selected cross-section
+% 
+%     distance = hypot(x_line - x_line(1), ...
+%                      y_line - y_line(1));
+% 
+% 
+%     % Plot comparison
+% 
+%     figure('Color', 'w', ...
+%            'Name', 'Cross-section Comparison');
+% 
+%     % Ground Truth: Staircase plot
+% 
+%     stairs(distance, profile_true, ...
+%            'Color', '#0072BD', ...
+%            'LineWidth', 1.5);
+% 
+%     hold on;
+% 
+% 
+%     % Reconstruction: Continuous plot
+% 
+%     plot(distance, profile_rec, ...
+%          'Color', '#D95319', ...
+%          'LineWidth', 1.5, ...
+%          'LineStyle', '--');
+% 
+% 
+%     grid on;
+%     grid minor;
+% 
+%     xlabel('Distance (\mum)');
+%     ylabel('Amplitude (a.u.)');
+% 
+%     legend('Ground Truth', 'Reconstruction');
+% 
+%     title('Cross-section Comparison');
+% 
+% end
+
+%% 12. AUTOMATED HORIZONTAL CROSS-SECTION EVALUATION (AT y = 0)
 
 amp_rec = abs(u_obj_rec);
 
+% Define horizontal cross-section range at y = 0 (e.g., -15 um to +15 um)
+x_roi_um = 15; % Half-width of zoomed region (um)
+idx_roi  = abs(x_um) <= x_roi_um;
 
-% Display reconstructed amplitude
+x_cut = x_um(idx_roi);
+profile_true = am(mid_y, idx_roi);
+profile_rec  = amp_rec(mid_y, idx_roi);
 
-fig = figure('Color', 'w', ...
-             'Name', 'Select Cross-section', ...
-             'Position', [300 300 800 600]);
+% Plot 1: Reconstructed Amplitude with highlighted y = 0 cross-section line
+figure('Color', 'w', ...
+       'Name', 'Reconstructed Amplitude & Cross-section', ...
+       'Position', [250 250 1100 450]);
 
-ax = axes(fig);
+subplot(1, 2, 1);
+imagesc(x_um, y_um, amp_rec);
+axis image;
+set(gca, 'YDir', 'normal');
+colormap gray;
+colorbar;
+hold on;
+% Draw red line along y = 0 within the selected ROI
+plot([min(x_cut), max(x_cut)], [0, 0], 'r-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+xlim([-55 55]); % Zoom into central +/- 55 um region
+ylim([-55 55]);
+title('Reconstructed Amplitude (Cut at y = 0)');
+xlabel('x (\mum)');
+ylabel('y (\mum)');
 
-imagesc(ax, x_um, y_um, amp_rec);
+% Plot 2: Cross-section Comparison at y = 0
+subplot(1, 2, 2);
+stairs(x_cut, profile_true, ...
+       'Color', '#0072BD', ...
+       'LineWidth', 1.8);
+hold on;
+plot(x_cut, profile_rec, ...
+     'Color', '#D95319', ...
+     'LineWidth', 1.8, ...
+     'LineStyle', '--');
 
-axis(ax, 'image');
-colormap(ax, gray);
-colorbar(ax);
-
-title(ax, 'Reconstructed Amplitude - Select Cross-section');
-
-xlabel(ax, 'x (\mum)');
-ylabel(ax, 'y (\mum)');
-
-
-% Select cross-section using mouse
-
-h = drawline(ax, 'Color', 'r', 'LineWidth', 1.5);
-
-wait(h);
-
-
-if isvalid(h)
-
-    % Get selected line coordinates
-
-    pos = h.Position;
-
-    x_line = linspace(pos(1,1), pos(2,1), 500);
-    y_line = linspace(pos(1,2), pos(2,2), 500);
-
-
-    % Ground Truth
-    % Nearest-neighbor interpolation to preserve pixel values
-
-    profile_true = interp2(x_um, y_um, am, ...
-                           x_line, y_line, 'nearest');
-
-
-    % Reconstruction
-    % Linear interpolation for continuous profile
-
-    profile_rec = interp2(x_um, y_um, amp_rec, ...
-                          x_line, y_line, 'linear');
-
-
-    % Distance along selected cross-section
-
-    distance = hypot(x_line - x_line(1), ...
-                     y_line - y_line(1));
-
-
-    % Plot comparison
-
-    figure('Color', 'w', ...
-           'Name', 'Cross-section Comparison');
-
-    % Ground Truth: Staircase plot
-
-    stairs(distance, profile_true, ...
-           'Color', '#0072BD', ...
-           'LineWidth', 1.5);
-
-    hold on;
-
-
-    % Reconstruction: Continuous plot
-
-    plot(distance, profile_rec, ...
-         'Color', '#D95319', ...
-         'LineWidth', 1.5, ...
-         'LineStyle', '--');
-
-
-    grid on;
-    grid minor;
-
-    xlabel('Distance (\mum)');
-    ylabel('Amplitude (a.u.)');
-
-    legend('Ground Truth', 'Reconstruction');
-
-    title('Cross-section Comparison');
-
-end
-
-
+grid on;
+grid minor;
+xlim([-x_roi_um, x_roi_um]);
+xlabel('x (\mum)');
+ylabel('Amplitude (a.u.)');
+legend('Ground Truth', 'Reconstruction', 'Location', 'best');
+title('Cross-section Comparison at y = 0');
 %% =========================================================================
 %                               FUNCTIONS
 % =========================================================================
