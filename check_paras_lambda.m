@@ -2,7 +2,7 @@ clc; clear; close all;
 tic
 
 %% 1. SYSTEM & SENSOR PARAMETERS (FIXED ACROSS SWEEP)
-z1 = 500e-6;                    % Fixed distance z1 (m)
+z1 = 250e-6;                    % Fixed distance z1 (m)
 dz = 500e-6;                    % Fixed plane spacing z2 - z1 (m)
 z2 = z1 + dz;
 
@@ -13,8 +13,8 @@ configs = [
 ];
 short_labels = {'405nm (n=1)', '405nm (n=1.515)'};
 
-area = 1000e-6;                 % FOV (m)
-dx = 200e-9;                    % Pixel pitch (m)
+area = 500e-6;                 % FOV (m)
+dx = 100e-9;                    % Pixel pitch (m)
 N = round(area/dx);
 dy = dx;
 
