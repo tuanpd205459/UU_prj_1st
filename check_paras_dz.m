@@ -10,8 +10,8 @@ dz = 500e-6;                    % Fixed plane spacing z2 - z1 (m)
 z1_list_um = [100, 250, 500, 1000, 1500, 2000]; % Sweep values for z1 (um)
 z1_list = z1_list_um * 1e-6;    % Convert to meters
 
-area = 500e-6;                  % FOV (m)
-dx = 100e-9;                    % Pixel pitch (m)
+area = 1000e-6;                  % FOV (m)
+dx = 200e-9;                    % Pixel pitch (m)
 N = round(area/dx);
 dy = dx;
 
@@ -208,20 +208,6 @@ end
 
 elapsed_time = toc;
 
-%% 6. DISPLAY & EXPORT SUMMARY TABLE
-SummaryTable = table(z1_list_um', z2_list_um', NA_eff_z1_arr', NA_eff_z2_arr', ...
-                     R_z1_nm_arr', R_z2_nm_arr', visibility_arr', regime_list', ...
-                     'VariableNames', {'z1_um', 'z2_um', 'NA_eff_z1', 'NA_eff_z2', ...
-                                       'Res_z1_nm', 'Res_z2_nm', 'Visibility', 'Limiting_Regime'});
-
-fprintf('\n=========================================================================================\n');
-fprintf('                               SWEEP SUMMARY TABLE                                       \n');
-fprintf('=========================================================================================\n');
-disp(SummaryTable);
-fprintf('Total execution time: %.2f seconds\n', elapsed_time);
-
-% Export table to CSV file for easy reference
-writetable(SummaryTable, fullfile(out_dir, 'Sweep_Parameters_Summary.csv'));
 
 %% 7. SUMMARY PLOTS ACROSS ALL z1 VALUES
 figure('Color', 'w', 'Name', 'Sweep Summary vs z1', 'Position', [150 150 1200 450]);
@@ -240,7 +226,7 @@ xlim([-2.5, 2.5]);
 ylim([0, 1.2]);
 xlabel('$x\ (\mu\mathrm{m})$', 'Interpreter', 'latex');
 ylabel('Amplitude (a.u.)', 'Interpreter', 'latex');
-title('Cross-section Degradation vs. Propagation Distance z_1');
+title('Cross-section Reconstructed Amplitude vs. Propagation Distance z_1');
 legend('Location', 'southeast', 'FontSize', 9);
 
 % Panel 2: Theoretical Resolution & Measured Slit Contrast vs z1
