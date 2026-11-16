@@ -11,10 +11,10 @@ configs = [
     405e-9, 1.000;              % Case 2: 405 nm in air
     405e-9, 1.515               % Case 3: 405 nm in immersion medium (n = 1.515)
 ];
-short_labels = { '405nm (n=1)', '267nm (n=1.515)'};
+short_labels = {'405nm (n=1)', '405nm (n=1.515)'};
 
-area = 500e-6;                 % FOV (m)
-dx = 100e-9;                    % Pixel pitch (m)
+area = 1000e-6;                 % FOV (m)
+dx = 200e-9;                    % Pixel pitch (m)
 N = round(area/dx);
 dy = dx;
 
@@ -57,6 +57,7 @@ U_obj_freq = FT2Dc(u_object);   % Pre-compute object FFT to save time
 fprintf('================ FIXED SYSTEM & OBJECT PARAMETERS ================\n');
 fprintf('Grid size (N x N)   : %d x %d pixels | FOV = %.0f um\n', N, N, area*1e6);
 fprintf('Pixel pitch (dx)    : %.1f nm | z1 = %.0f um, z2 = %.0f um (dz = %.0f um)\n', dx*1e9, z1*1e6, z2*1e6, dz*1e6);
+fprintf('NA_geo (z1 / z2)    : %.4f / %.4f\n', NA_geo_z1_val, NA_geo_z2_val);
 fprintf('Object              : Two slits (Width = %.0f nm, Length = %.0f nm, Gap = %.0f nm)\n', ...
         object_width_nm, object_length_nm, center_distance_nm - object_width_nm);
 fprintf('==================================================================\n');
@@ -83,7 +84,7 @@ z_max_um_arr      = zeros(1, num_cases);
 rmse_arr          = zeros(1, num_cases);
 regime_list       = strings(1, num_cases);
 
-% Store cross-section profiles (using cell for compatibility)
+% Store cross-section profiles
 x_cut_cell     = cell(1, num_cases);
 prof_true_cell = cell(1, num_cases);
 prof_rec_cell  = cell(1, num_cases);
@@ -91,7 +92,7 @@ prof_rec_cell  = cell(1, num_cases);
 Iterations = 100;
 
 %% 4. PARAMETER SWEEP LOOP OVER WAVELENGTH & REFRACTIVE INDEX
-fprintf('\nStarting sweep over %d configurations (Iterations per case: %d)...\n', num_cases, Iterations);
+fprintf('\nStarting sweep over %d configurations (Iterations per case: %d)...\n\n', num_cases, Iterations);
 
 for k = 1:num_cases
     lambda_0          = configs(k, 1);
@@ -173,9 +174,14 @@ for k = 1:num_cases
     % Calculate RMSE on ROI cross-section
     rmse_arr(k) = sqrt(mean((prof_rec - profile_true).^2));
     
-    fprintf('[%d/%d] %s (lam_eff=%5.1fnm) | z_crit=%6.1fum | NA_z1=%.4f (R1=%5.1fnm) | NA_z2=%.4f (R2=%5.1fnm) | RMSE=%.4f | %s\n', ...
-            k, num_cases, short_labels{k}, lambda*1e9, z_crit*1e6, ...
-            NA_eff_z1, R_z1*1e9, NA_eff_z2, R_z2*1e9, rmse_arr(k), regime_list(k));
+    % Print log line-by-line
+    fprintf('--- [%d/%d] %s ---\n', k, num_cases, short_labels{k});
+    fprintf('  Lambda_eff : %.1f nm (NA_Nyq = %.4f)\n', lambda*1e9, NA_Nyq);
+    fprintf('  z_crit     : %.1f um | z_max = %.2f mm\n', z_crit*1e6, z_max*1e3);
+    fprintf('  At z1      : NA_eff = %.4f | R1 = %.1f nm\n', NA_eff_z1, R_z1*1e9);
+    fprintf('  At z2      : NA_eff = %.4f | R2 = %.1f nm\n', NA_eff_z2, R_z2*1e9);
+    fprintf('  RMSE       : %.4f\n', rmse_arr(k));
+    fprintf('  Regime     : %s\n\n', regime_list(k));
     
     % Save individual evaluation figure
     fig = figure('Visible', 'off', 'Color', 'w', 'Position', [100 100 1100 450]);
@@ -209,21 +215,9 @@ for k = 1:num_cases
 end
 
 elapsed_time = toc;
-fprintf('\nCompleted in %.2f seconds.\n', elapsed_time);
+fprintf('Completed in %.2f seconds.\n', elapsed_time);
 
-%% 5. DISPLAY SUMMARY TABLE IN COMMAND WINDOW
-SummaryTable = table(short_labels', lambda_eff_nm_arr', NA_Nyq_arr', ...
-                     NA_geo_z1_arr', NA_eff_z1_arr', R_z1_nm_arr', ...
-                     NA_geo_z2_arr', NA_eff_z2_arr', R_z2_nm_arr', ...
-                     z_crit_um_arr', rmse_arr', regime_list', ...
-    'VariableNames', {'Config', 'Lambda_eff_nm', 'NA_Nyq', ...
-                      'NA_geo_z1', 'NA_eff_z1', 'R_z1_nm', ...
-                      'NA_geo_z2', 'NA_eff_z2', 'R_z2_nm', ...
-                      'z_crit_um', 'RMSE', 'Regime'});
-disp('================ SWEEP SUMMARY TABLE ================');
-disp(SummaryTable);
-
-%% 6. SUMMARY PLOTS ACROSS ALL CONFIGURATIONS
+%% 5. SUMMARY PLOTS ACROSS ALL CONFIGURATIONS
 figure('Color', 'w', 'Name', 'Sweep Summary vs Wavelength', 'Position', [100 100 1350 480]);
 
 % Panel 1: Overlay of cross-sections at y = 0
