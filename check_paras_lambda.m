@@ -2,8 +2,8 @@ clc; clear; close all;
 tic
 
 %% 1. SYSTEM & SENSOR PARAMETERS (FIXED ACROSS SWEEP)
-z1 = 250e-6;                    % Fixed distance z1 (m)
-dz = 500e-6;                    % Fixed plane spacing z2 - z1 (m)
+z1 = 350e-6;                    % Fixed distance z1 (m)
+dz = 50e-6;                    % Fixed plane spacing z2 - z1 (m)
 z2 = z1 + dz;
 
 % Define sweep configurations: [lambda_0 (m), refractive_index]
@@ -11,10 +11,10 @@ configs = [
     405e-9, 1.000;              % Case 2: 405 nm in air
     405e-9, 1.515               % Case 3: 405 nm in immersion medium (n = 1.515)
 ];
-short_labels = {'405nm (n=1)', '405nm (n=1.515)'};
+short_labels = {'405nm (n=1)', '267nm (n=1.515)'};
 
-area = 500e-6;                 % FOV (m)
-dx = 100e-9;                    % Pixel pitch (m)
+area = 1000e-6;                  % FOV (m)
+dx = 200e-9;                    % Pixel pitch (m)
 N = round(area/dx);
 dy = dx;
 
@@ -189,7 +189,7 @@ for k = 1:num_cases
     subplot(1, 2, 1);
     imagesc(x_um, y_um, amp_rec);
     axis image;
-    set(gca, 'YDir', 'normal', 'FontName', 'Times New Roman', 'FontSize', 11);
+    set(gca, 'YDir', 'normal', 'FontName', 'Times New Roman', 'FontSize', 14);
     colormap gray; colorbar; hold on;
     plot([min(x_cut), max(x_cut)], [0, 0], 'r-o', 'LineWidth', 1.5, 'MarkerSize', 4);
     xlim([-15 15]); ylim([-15 15]);
@@ -201,7 +201,7 @@ for k = 1:num_cases
     stairs(x_cut, profile_true, 'Color', '#0072BD', 'LineWidth', 1.8); hold on;
     plot(x_cut, prof_rec, 'Color', '#D95319', 'LineWidth', 1.8, 'LineStyle', '--');
     grid on; grid minor;
-    set(gca, 'FontName', 'Times New Roman', 'FontSize', 11);
+    set(gca, 'FontName', 'Times New Roman', 'FontSize', 14);
     xlim([-x_roi_um, x_roi_um]);
     ylim([0, 1.2]);
     xlabel('$x\ (\mu\mathrm{m})$', 'Interpreter', 'latex');
@@ -221,7 +221,7 @@ fprintf('Completed in %.2f seconds.\n', elapsed_time);
 figure('Color', 'w', 'Name', 'Sweep Summary vs Wavelength', 'Position', [100 100 1350 480]);
 
 % Panel 1: Overlay of cross-sections at y = 0
-subplot(1, 3, 1);
+subplot(1, 2, 1);
 stairs(x_cut_cell{1}, prof_true_cell{1}, 'k-', 'LineWidth', 2, 'DisplayName', 'Ground Truth'); hold on;
 colors = lines(num_cases);
 for k = 1:num_cases
@@ -229,16 +229,16 @@ for k = 1:num_cases
          'DisplayName', sprintf('%s (R1=%.0f nm)', short_labels{k}, R_z1_nm_arr(k)));
 end
 grid on; grid minor;
-set(gca, 'FontName', 'Times New Roman', 'FontSize', 11);
+set(gca, 'FontName', 'Times New Roman', 'FontSize', 14);
 xlim([-2.5, 2.5]);
 ylim([0, 1.2]);
 xlabel('$x\ (\mu\mathrm{m})$', 'Interpreter', 'latex');
 ylabel('Amplitude (a.u.)', 'Interpreter', 'latex');
 title('Cross-Section Amplitude at y = 0');
-legend('Location', 'southeast', 'FontSize', 8.5);
+legend('Location', 'southeast', 'FontSize', 12);
 
 % Panel 2: Theoretical Resolution R_z1 & R_z2
-subplot(1, 3, 2);
+subplot(1, 2, 2);
 x_idx = 1:num_cases;
 plot(x_idx, R_z1_nm_arr, '-o', 'LineWidth', 2, 'MarkerSize', 7, 'DisplayName', 'R at z_1'); hold on;
 plot(x_idx, R_z2_nm_arr, '-s', 'LineWidth', 2, 'MarkerSize', 7, 'DisplayName', 'R at z_2');
@@ -246,24 +246,13 @@ yline(200, 'r--', 'Object Gap (200 nm)', 'LineWidth', 1.2, 'DisplayName', 'Gap (
 ylabel('Theoretical Resolution $R$ (nm)', 'Interpreter', 'latex');
 ylim([0, max(R_z2_nm_arr)*1.2]);
 grid on; grid minor;
-set(gca, 'FontName', 'Times New Roman', 'FontSize', 11, ...
+set(gca, 'FontName', 'Times New Roman', 'FontSize', 14, ...
          'XTick', x_idx, 'XTickLabel', short_labels);
 xlim([0.7, num_cases + 0.3]);
 xlabel('Configuration', 'Interpreter', 'latex');
 title('Theoretical Resolution (z_1 & z_2)');
-legend('Location', 'northeast', 'FontSize', 8.5);
+legend('Location', 'northeast', 'FontSize', 12);
 
-% Panel 3: Reconstruction Error (RMSE)
-subplot(1, 3, 3);
-plot(x_idx, rmse_arr, '-^', 'LineWidth', 2, 'MarkerSize', 7, 'Color', '#77AC30');
-ylabel('Profile RMSE (a.u.)', 'Interpreter', 'latex');
-ylim([0, max(rmse_arr)*1.25]);
-grid on; grid minor;
-set(gca, 'FontName', 'Times New Roman', 'FontSize', 11, ...
-         'XTick', x_idx, 'XTickLabel', short_labels);
-xlim([0.7, num_cases + 0.3]);
-xlabel('Configuration', 'Interpreter', 'latex');
-title('Reconstruction RMSE vs. Configuration');
 
 %% =========================================================================
 %                                FUNCTIONS
