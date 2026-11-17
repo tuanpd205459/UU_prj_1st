@@ -147,12 +147,15 @@ res_total_oil = max(res_diff_oil, 2 * dx_ref);
 plot(lambda_range*1e9, res_total_air*1e9, 'b', 'LineWidth', 2.2); hold on;
 plot(lambda_range*1e9, res_total_oil*1e9, 'c', 'LineWidth', 2.2);
 plot(lambda_range*1e9, 2*dx_ref*ones(size(lambda_range))*1e9, '--r', 'LineWidth', 1.5);
+
 xline(lambda0_ref*1e9, ':g', 'LineWidth', 1.8);
+xline(lambda0_ref/1.515*1e9, ':k', 'LineWidth', 1.8);
+
 grid on;
 title('4. Effect of Wavelength \lambda_0 & Medium n');
 xlabel('Vacuum wavelength \lambda_0 (nm)');
 ylabel('Theoretical resolution \delta (nm)');
-legend('Resolution in Air (n = 1.000)', 'Glycerin (n = 1.515)', 'Nyquist limit (2\Delta x)', 'Current (405nm)', 'Location', 'northwest');
+legend('Resolution in Air (n = 1.000)', 'Glycerin (n = 1.515)', 'Nyquist limit (2\Delta x)', 'Air (405nm)','Glycerin (267nm)', 'Location', 'northwest');
 
 sgtitle('Theoretical Resolution Analysis (Abbe / Nyquist Criteria)', 'FontSize', 14, 'FontWeight', 'bold');
 

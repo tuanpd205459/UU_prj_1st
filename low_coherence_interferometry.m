@@ -9,8 +9,8 @@ clc; clear; close all;
 %% 1. SYSTEM PARAMETERS (mm)
 
 % Central wavelength and spectral bandwidth
-lambda_c = 0.633e-3;       % 633 nm
-bandwidth = 0.020e-3;      % 20 nm FWHM
+lambda_c = 0.405e-3;       % 633 nm
+bandwidth = 0.004e-3;      % 20 nm FWHM
 
 num_lambda = 50;
 
