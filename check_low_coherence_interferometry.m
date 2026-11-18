@@ -1,40 +1,48 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% SLD INLINE DIGITAL HOLOGRAPHY - COHERENCE VERIFICATION (OPTIMIZED)
-% So sánh trực tiếp SLD (Low-Coherence) và Laser (Monochromatic)
+% SLD INLINE DIGITAL HOLOGRAPHY - SLD405T SIMULATION (CHUẨN ĐƠN VỊ SI: m)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clc; clear; close all;
 
-%% 1. SYSTEM PARAMETERS (mm)
+%% 1. SYSTEM PARAMETERS (Đơn vị chuẩn: mét - m)
 
-lambda_c   = 0.405e-3;     % Bước sóng trung tâm: 405 nm
-bandwidth  = 0.030e-3;     % Bề rộng phổ FWHM: 30 nm
-num_lambda = 60;           % Số điểm lấy mẫu phổ
+lambda_c     = 405e-9;     % Bước sóng trung tâm: 405 nm
+bandwidth = 4e-9;       % Băng thông 3 dB (FWHM): 4 nm
+
+% Chiều dài kết hợp Lc theo quy ước FWHM (m)
+Lc = (4 * log(2) / pi) * (lambda_c^2 / bandwidth);
+
+% Tự động điều chỉnh số điểm lấy mẫu phổ (bước lấy mẫu <= 0.5 nm)
+num_lambda = max(60, ceil(bandwidth / 0.5e-9));
+
+fprintf('Chieu dai ket hop Lc  = %.2f um\n', Lc * 1e6);
+fprintf('Be rong pho FWHM      = %.2f nm\n', bandwidth * 1e9);
+fprintf('So diem lay mau pho   = %d\n', num_lambda);
 
 % Lấy mẫu phổ trong khoảng +- 1.5 * FWHM (phủ >99.9% năng lượng phổ Gaussian)
 span   = 3 * bandwidth;
 lambda = linspace(lambda_c - span/2, lambda_c + span/2, num_lambda);
 
+if any(lambda <= 0)
+    error('Dai pho vuot qua buoc song trung tam! Hay kiem tra lai lambda_c va delta_lambda.');
+end
+
 % Phân bố phổ Gaussian & chuẩn hóa trọng số
 S       = exp(-4 * log(2) * ((lambda - lambda_c) / bandwidth).^2);
 weights = S / sum(S);
 
-% Tính chiều dài kết hợp lý thuyết Lc (mm)
-Lc = (2 * log(2) / pi) * (lambda_c^2 / bandwidth);
-fprintf('Chieu dai ket hop ly thuyet Lc = %.2f um\n', Lc * 1e3);
-
-% Cảm biến (Sensor) - Tăng độ phân giải lấy mẫu để tránh nhiễu aliasing ở rìa
+% Cảm biến (Sensor)
 N    = 800;
-dx   = 1e-3;               % Kích thước pixel: 1 um
-area = dx * N;             % Kích thước vùng mô phỏng: 0.8 x 0.8 mm
+dx   = 1e-6;               % Kích thước pixel: 1 um
+area = dx * N;             % Vùng mô phỏng: 0.8 x 0.8 mm (800 um)
 
 % Khoảng cách truyền sóng
-z1 = 2.0;                  % 2.0 mm
+z1 = 2e-3;                 % 2.0 mm
 
 %% 2. OBJECT (IN-LINE HOLOGRAPHY SETUP)
 
-slit_width  = 10e-3;       % Độ rộng thanh vật mẫu: 10 um
-slit_length = 0.4;         % Chiều dài thanh vật mẫu: 0.4 mm
+slit_width  = 10e-6;       % Độ rộng vật mẫu: 10 um
+slit_length = 0.4e-3;      % Chiều dài vật mẫu: 0.4 mm (400 um)
 
 slit_width_px  = max(1, round(slit_width / dx));
 slit_length_px = max(1, round(slit_length / dx));
@@ -50,20 +58,16 @@ y2 = y1 + slit_length_px - 1;
 
 object(y1:y2, x1:x2) = 1;
 
-% Chọn loại vật mẫu in-line (nền xung quanh = 1 đóng vai trò sóng tham chiếu):
-% Cách 1: Vật hấp thụ một phần (bán trong suốt, biên độ truyền qua = 0.2)
+% Vật hấp thụ một phần trên nền sáng (In-line Hologram)
 t = 1 - 0.8 * object;
-
-% Cách 2: Vật thuần pha (bỏ dấu % ở dòng dưới nếu muốn thử nghiệm vật pha)
-% t = exp(1i * 1.5 * object);
 
 %% 3. MÔ PHỎNG HOLOGRAM: SLD VS. LASER ĐƠN SẮC
 
-% A. Trường hợp chuẩn đối chiếu: Laser đơn sắc tại lambda_c
+% A. Laser đơn sắc (Lc = vô cùng)
 prop_mono = Propagator(N, lambda_c, area, z1);
 I_mono    = abs(IFT2Dc(FT2Dc(t) .* prop_mono)).^2;
 
-% B. Trường hợp nguồn kết hợp thấp (SLD): Cộng dồn cường độ không kết hợp theo phổ
+% B. Nguồn SLD với băng thông delta_lambda
 I_sld = zeros(N, N);
 for j = 1:num_lambda
     prop_j  = Propagator(N, lambda(j), area, z1);
@@ -71,43 +75,40 @@ for j = 1:num_lambda
     I_sld   = I_sld + weights(j) * (abs(field_j).^2);
 end
 
-% Kiểm tra bảo toàn năng lượng
-fprintf('Ty so bao toan nang luong (SLD / Object) = %.5f\n', sum(I_sld(:)) / sum(abs(t(:)).^2));
+%% 4. HIỂN THỊ & ĐỐI CHIẾU
 
-%% 4. HIỂN THỊ & ĐỐI CHIẾU KIỂM TRA (VISUAL VERIFICATION)
-
-x_axis = ((1:N) - cx) * dx * 1e3; % Trục tọa độ ngang (đơn vị: um)
+x_axis = ((1:N) - cx) * dx * 1e6; % Đổi trục tọa độ ngang từ m -> um
 row_center = cy;
 
-figure('Name', 'Kiem tra mo phong In-line Hologram (SLD vs Laser)', 'Position', [100, 100, 1150, 680]);
+figure('Name', sprintf('SLD Hologram (Lc = %.1f um)', Lc * 1e6), 'Position', [100, 100, 1150, 680]);
 
-% Ảnh 2D của Laser
+% Ảnh 2D Laser
 subplot(2, 2, 1);
 imagesc(x_axis, x_axis, I_mono);
 axis image; colormap gray; colorbar;
-caxis([0.4 1.6]); % Cố định thang màu để so sánh độ tương phản vân công bằng
-title('1. In-line Hologram - Laser đơn sắc (\Delta\lambda = 0)');
+clim([0.4 1.6]);
+title('1. Laser đơn sắc (L_c = \infty)');
 xlabel('x (\mum)'); ylabel('y (\mum)');
 
-% Ảnh 2D của SLD
+% Ảnh 2D SLD
 subplot(2, 2, 2);
 imagesc(x_axis, x_axis, I_sld);
 axis image; colormap gray; colorbar;
-caxis([0.4 1.6]);
-title(sprintf('2. In-line Hologram - Nguồn SLD (\\Delta\\lambda = %.0f nm)', bandwidth*1e6));
+clim([0.4 1.6]);
+title(sprintf('2. Nguồn SLD (L_c = %.1f \\mum, \\Delta\\lambda = %.1f nm)', Lc * 1e6, bandwidth * 1e9));
 xlabel('x (\mum)'); ylabel('y (\mum)');
 
-% Lát cắt ngang qua tâm vật thể
+% Lát cắt ngang qua tâm
 subplot(2, 1, 2);
 plot(x_axis, I_mono(row_center, :), 'b--', 'LineWidth', 1.1); hold on;
 plot(x_axis, I_sld(row_center, :),  'r-',  'LineWidth', 1.6);
-yline(1.0, 'k:', 'LineWidth', 1.0); % Đường mức nền tham chiếu I = 1
+yline(1.0, 'k:', 'LineWidth', 1.0);
 grid on;
 xlim([-350 350]);
 xlabel('Vị trí ngang x (\mum)');
 ylabel('Cường độ chuẩn hóa');
-title('3. Lát cắt ngang qua tâm vật: Vân SLD (đỏ) tắt hẳn về mức nền 1.0 ở rìa xa');
-legend('Laser đơn sắc (Độ kết hợp cao)', 'Nguồn SLD (Độ kết hợp thấp)', 'Cường độ nền tham chiếu (I_R = 1)', 'Location', 'northeast');
+title(sprintf('3. Lát cắt ngang qua tâm với L_c = %.1f \\mum', Lc * 1e6));
+legend('Laser đơn sắc (L_c = \infty)', sprintf('Nguồn SLD (L_c = %.1f \\mum)', Lc * 1e6), 'Nền tham chiếu (I_R = 1)', 'Location', 'northeast');
 
 %% 5. HELPER FUNCTIONS (BAND-LIMITED ASM)
 
@@ -119,7 +120,6 @@ function p = Propagator(N, lambda, area, z)
     alpha = lambda * fx;
     beta  = lambda * fy;
     
-    % Giới hạn băng tần (Band-Limited ASM) tránh nhiễu aliasing ở biên
     f_limit = 1 / (lambda * sqrt(1 + (2 * z / area)^2));
     mask = (alpha.^2 + beta.^2 <= 1) & (abs(fx) <= f_limit) & (abs(fy) <= f_limit);
     

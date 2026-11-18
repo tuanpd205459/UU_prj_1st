@@ -1,41 +1,30 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% SLD INLINE DIGITAL HOLOGRAPHY - ADJUSTABLE COHERENCE LENGTH (Lc)
-% Nhập trực tiếp Lc (um) để tự động tính bề rộng phổ và mô phỏng
+% SLD INLINE DIGITAL HOLOGRAPHY - SLD405T SIMULATION (CHUẨN ĐƠN VỊ SI: m)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clc; clear; close all;
 
-%% 1. SYSTEM PARAMETERS (mm)
+%% 1. SYSTEM PARAMETERS (Đơn vị chuẩn: mét - m)
 
-lambda_c = 0.405e-3;       % Bước sóng trung tâm: 405 nm (0.405e-3 mm)
+lambda_c     = 405e-9;     % Bước sóng trung tâm: 405 nm
+bandwidth = 4e-9;       % Băng thông 3 dB (FWHM): 4 nm
 
-% === THAY ĐỔI CHIỀU DÀI KẾT HỢP TẠI ĐÂY ===
-Lc_target_um = 30;        % Chiều dài kết hợp mong muốn Lc (đơn vị: um)
-                           % Gợi ý thử nghiệm:
-                           %   Lc = 1.5 um -> SLD siêu băng rộng (vân tắt cực nhanh)
-                           %   Lc = 5.0 um -> SLD trung bình
-                           %   Lc = 25  um -> Gần giống Laser (vân lan rộng)
-% ==========================================
+% Chiều dài kết hợp Lc theo quy ước FWHM (m)
+Lc = (4 * log(2) / pi) * (lambda_c^2 / bandwidth);
 
-Lc = Lc_target_um * 1e-3;  % Đổi sang đơn vị mm
+% Tự động điều chỉnh số điểm lấy mẫu phổ (bước lấy mẫu <= 0.5 nm)
+num_lambda = max(60, ceil(bandwidth / 0.5e-9));
 
-% Tính ngược bề rộng phổ FWHM (bandwidth) từ Lc cho phổ Gaussian
-bandwidth = (2 * log(2) / pi) * (lambda_c^2 / Lc);
-
-% Tự động điều chỉnh số điểm lấy mẫu phổ để tránh aliasing khi Lc nhỏ (phổ rộng)
-num_lambda = max(60, ceil(bandwidth / 0.5e-6)); 
-
-fprintf('Chieu dai ket hop Lc  = %.2f um\n', Lc_target_um);
-fprintf('Be rong pho FWHM      = %.2f nm\n', bandwidth * 1e6);
+fprintf('Chieu dai ket hop Lc  = %.2f um\n', Lc * 1e6);
+fprintf('Be rong pho FWHM      = %.2f nm\n', bandwidth * 1e9);
 fprintf('So diem lay mau pho   = %d\n', num_lambda);
 
 % Lấy mẫu phổ trong khoảng +- 1.5 * FWHM (phủ >99.9% năng lượng phổ Gaussian)
 span   = 3 * bandwidth;
 lambda = linspace(lambda_c - span/2, lambda_c + span/2, num_lambda);
 
-% Kiểm tra an toàn không để bước sóng <= 0 nếu Lc đặt quá nhỏ
 if any(lambda <= 0)
-    error('Lc qua nho khien dai pho vuot qua buoc song trung tam! Hay tang Lc_target_um.');
+    error('Dai pho vuot qua buoc song trung tam! Hay kiem tra lai lambda_c va delta_lambda.');
 end
 
 % Phân bố phổ Gaussian & chuẩn hóa trọng số
@@ -44,16 +33,16 @@ weights = S / sum(S);
 
 % Cảm biến (Sensor)
 N    = 800;
-dx   = 1e-3;               % Kích thước pixel: 1 um
-area = dx * N;             % Vùng mô phỏng: 0.8 x 0.8 mm
+dx   = 1e-6;               % Kích thước pixel: 1 um
+area = dx * N;             % Vùng mô phỏng: 0.8 x 0.8 mm (800 um)
 
 % Khoảng cách truyền sóng
-z1 = 2.0;                  % 2.0 mm
+z1 = 2e-3;                 % 2.0 mm
 
 %% 2. OBJECT (IN-LINE HOLOGRAPHY SETUP)
 
-slit_width  = 10e-3;       % Độ rộng vật mẫu: 10 um
-slit_length = 0.4;         % Chiều dài vật mẫu: 0.4 mm
+slit_width  = 10e-6;       % Độ rộng vật mẫu: 10 um
+slit_length = 0.4e-3;      % Chiều dài vật mẫu: 0.4 mm (400 um)
 
 slit_width_px  = max(1, round(slit_width / dx));
 slit_length_px = max(1, round(slit_length / dx));
@@ -78,7 +67,7 @@ t = 1 - 0.8 * object;
 prop_mono = Propagator(N, lambda_c, area, z1);
 I_mono    = abs(IFT2Dc(FT2Dc(t) .* prop_mono)).^2;
 
-% B. Nguồn SLD với chiều dài kết hợp Lc_target_um
+% B. Nguồn SLD với băng thông delta_lambda
 I_sld = zeros(N, N);
 for j = 1:num_lambda
     prop_j  = Propagator(N, lambda(j), area, z1);
@@ -88,16 +77,16 @@ end
 
 %% 4. HIỂN THỊ & ĐỐI CHIẾU
 
-x_axis = ((1:N) - cx) * dx * 1e3; % Trục tọa độ ngang (um)
+x_axis = ((1:N) - cx) * dx * 1e6; % Đổi trục tọa độ ngang từ m -> um
 row_center = cy;
 
-figure('Name', sprintf('SLD Hologram (Lc = %.1f um)', Lc_target_um), 'Position', [100, 100, 1150, 680]);
+figure('Name', sprintf('SLD Hologram (Lc = %.1f um)', Lc * 1e6), 'Position', [100, 100, 1150, 680]);
 
 % Ảnh 2D Laser
 subplot(2, 2, 1);
 imagesc(x_axis, x_axis, I_mono);
 axis image; colormap gray; colorbar;
-caxis([0.4 1.6]);
+clim([0.4 1.6]);
 title('1. Laser đơn sắc (L_c = \infty)');
 xlabel('x (\mum)'); ylabel('y (\mum)');
 
@@ -105,8 +94,8 @@ xlabel('x (\mum)'); ylabel('y (\mum)');
 subplot(2, 2, 2);
 imagesc(x_axis, x_axis, I_sld);
 axis image; colormap gray; colorbar;
-caxis([0.4 1.6]);
-title(sprintf('2. Nguồn SLD (L_c = %.1f \\mum, \\Delta\\lambda = %.1f nm)', Lc_target_um, bandwidth*1e6));
+clim([0.4 1.6]);
+title(sprintf('2. Nguồn SLD (L_c = %.1f \\mum, \\Delta\\lambda = %.1f nm)', Lc * 1e6, bandwidth * 1e9));
 xlabel('x (\mum)'); ylabel('y (\mum)');
 
 % Lát cắt ngang qua tâm
@@ -118,8 +107,8 @@ grid on;
 xlim([-350 350]);
 xlabel('Vị trí ngang x (\mum)');
 ylabel('Cường độ chuẩn hóa');
-title(sprintf('3. Lát cắt ngang qua tâm với L_c = %.1f \\mum', Lc_target_um));
-legend('Laser đơn sắc (L_c = \infty)', sprintf('Nguồn SLD (L_c = %.1f \\mum)', Lc_target_um), 'Nền tham chiếu (I_R = 1)', 'Location', 'northeast');
+title(sprintf('3. Lát cắt ngang qua tâm với L_c = %.1f \\mum', Lc * 1e6));
+legend('Laser đơn sắc (L_c = \infty)', sprintf('Nguồn SLD (L_c = %.1f \\mum)', Lc * 1e6), 'Nền tham chiếu (I_R = 1)', 'Location', 'northeast');
 
 %% 5. HELPER FUNCTIONS (BAND-LIMITED ASM)
 
