@@ -1,113 +1,137 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SINGLE-WAVELENGTH LASER INLINE DIGITAL HOLOGRAPHY (CHUẨN ĐƠN VỊ SI: m)
+% MULTI-PLANE PHASE RETRIEVAL
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 clc; clear; close all;
 
-%% 1. SLD PARAMETERS
-lambda0 = 633e-9;       % Central wavelength (m)
-FWHM = 20e-9;           % Spectral bandwidth (m)
+%% 1. SYSTEM PARAMETERS (Đơn vị chuẩn: mét - m)
 
-Nlambda = 501;
-lambda = linspace(lambda0-3*FWHM, ...
-                  lambda0+3*FWHM, Nlambda);
+% Bước sóng đơn sắc của Laser
+lambda = 405e-9;           % 405 nm
 
-% Gaussian spectral power density
-S = exp(-4*log(2)*((lambda-lambda0)/FWHM).^2);
-S = S / sum(S);
+% Cảm biến (Sensor)
+N    = 512;
+dx   = 2e-6;             
+area = dx * N;            
 
-%% 2. TEMPORAL COHERENCE FUNCTION
-OPD = linspace(-50e-6,50e-6,1001);
+% Khoảng cách truyền sóng
+z1 = 1.5e-3;               % 1.5 mm
+z2 = 2.0e-3;               % 2.0 mm
+dz = z2 - z1;            
 
-gamma = zeros(size(OPD));
+%% 2. OBJECT (SINGLE NARROW SLIT)
 
-for k = 1:length(OPD)
-    gamma(k) = sum(S .* exp(1i*2*pi*OPD(k)./lambda));
-end
+slit_width  = 10e-6;       % Độ rộng khe: 10 um
+slit_length = 0.5e-3;      % Chiều dài khe: 0.5 mm
 
-gamma = gamma / sum(S);
+slit_width_px  = max(1, round(slit_width / dx));
+slit_length_px = max(1, round(slit_length / dx));
 
-% Approximate 1/e coherence length for Gaussian spectrum
-Lc = 2*sqrt(log(2))/pi * lambda0^2/FWHM;
+object = zeros(N, N);
+cx = round(N/2);
+cy = round(N/2);
 
-%% 3. INTERFERENCE SIMULATION
-Nx = 2000;
-x = linspace(-1e-3,1e-3,Nx);
+x1 = cx - floor(slit_width_px/2);
+x2 = x1 + slit_width_px - 1;
+y1 = cy - floor(slit_length_px/2);
+y2 = y1 + slit_length_px - 1;
 
-theta = 0.5*pi/180;
-Aobj = 0.8;
-Aref = 1;
+object(y1:y2, x1:x2) = 1;
 
-OPD0 = [0, 20e-6];
+% Hàm truyền qua
+am = 1 - 0.2 * object;    % Nền = 1.0, Vật = 0.8
+ph = 1.0 * object;        % Nền = 0 rad, Vật = 1.0 rad
+t  = am .* exp(1i * ph);  
 
-I_SLD = zeros(2,Nx);
+figure('Name', 'Single Narrow Slit');
+subplot(1, 2, 1); imagesc(object); axis image; colormap gray; colorbar; title('Single Slit');
+subplot(1, 2, 2); imagesc(am);     axis image; colormap gray; colorbar; title('Object Amplitude');
 
-for q = 1:2
+%% 3. HOLOGRAM RECORDING (MONOCHROMATIC LASER)
 
-    opd_map = OPD0(q) + x*sin(theta);
+disp('Calculating Laser holograms...');
 
-    for k = 1:Nlambda
+prop_z1 = Propagator(N, lambda, area, z1);
+prop_z2 = Propagator(N, lambda, area, z2);
 
-        phase = 2*pi*opd_map/lambda(k);
+field_z1 = IFT2Dc(FT2Dc(t) .* prop_z1);
+field_z2 = IFT2Dc(FT2Dc(t) .* prop_z2);
 
-        Uref = Aref;
-        Uobj = Aobj .* exp(1i*phase);
+hologram1 = abs(field_z1).^2;
+hologram2 = abs(field_z2).^2;
 
-        % Incoherent spectral intensity integration
-        I_SLD(q,:) = I_SLD(q,:) + ...
-            S(k)*abs(Uref + Uobj).^2;
+amp1_measured = sqrt(hologram1);
+amp2_measured = sqrt(hologram2);
+
+figure('Name', 'Laser Holograms');
+subplot(1, 2, 1); imagesc(hologram1); axis image; colormap gray; colorbar; title('Laser Hologram (z1 = 1.5 mm)');
+subplot(1, 2, 2); imagesc(hologram2); axis image; colormap gray; colorbar; title('Laser Hologram (z2 = 2.0 mm)');
+
+%% 4. MULTI-PLANE PHASE RETRIEVAL
+
+Iterations = 1000;
+
+prop_dz       = Propagator(N, lambda, area, dz);
+prop_minus_dz = Propagator(N, lambda, area, -dz);
+prop_minus_z1 = Propagator(N, lambda, area, -z1);
+
+u1 = amp1_measured;
+
+figure('Name', 'Laser Reconstruction');
+disp('Starting phase retrieval...');
+
+for iter = 1:Iterations
+    % A. Truyền xuôi z1 -> z2
+    u2_sim = IFT2Dc(FT2Dc(u1) .* prop_dz);
+
+    % B. Ép biên độ đo được tại z2 (giữ lại pha ước lượng)
+    u2 = amp2_measured .* exp(1i * angle(u2_sim));
+
+    % C. Truyền ngược z2 -> z1
+    u1_sim = IFT2Dc(FT2Dc(u2) .* prop_minus_dz);
+
+    % D. Ép biên độ đo được tại z1 (giữ lại pha ước lượng)
+    u1 = amp1_measured .* exp(1i * angle(u1_sim));
+
+    % Hiển thị quá trình tái tạo
+    if mod(iter, 10) == 0 || iter == 1 || iter == Iterations
+        u_obj_rec = IFT2Dc(FT2Dc(u1) .* prop_minus_z1);
+
+        subplot(1, 2, 1);
+        imagesc(abs(u_obj_rec)); axis image; colormap gray; colorbar;
+        title(sprintf('Amplitude - Iter %d', iter));
+
+        subplot(1, 2, 2);
+        imagesc(angle(u_obj_rec)); axis image; colormap gray; colorbar;
+        title(sprintf('Phase - Iter %d', iter));
+
+        drawnow;
     end
 end
 
-% Monochromatic laser comparison
-I_Laser = zeros(2,Nx);
+disp('Reconstruction completed!');
 
-for q = 1:2
-    opd_map = OPD0(q) + x*sin(theta);
+%% 5. HELPER FUNCTIONS
 
-    I_Laser(q,:) = abs(Aref + ...
-        Aobj*exp(1i*2*pi*opd_map/lambda0)).^2;
+function p = Propagator(N, lambda, area, z)
+    [X, Y] = meshgrid(1:N, 1:N);
+    alpha = lambda * (Y - N/2 - 1) / area;
+    beta  = lambda * (X - N/2 - 1) / area;
+
+    mask = (alpha.^2 + beta.^2) <= 1;
+    p = zeros(N, N);
+    p(mask) = exp(2 * pi * 1i * z .* sqrt(1 - alpha(mask).^2 - beta(mask).^2) / lambda);
 end
 
-%% 4. PLOT RESULTS
-figure('Color','w','Position',[100 100 1200 800]);
+function out = FT2Dc(in)
+    [Nx, Ny] = size(in);
+    f1 = ((-1).^(1:Nx).') * ((-1).^(1:Ny));
+    out = f1 .* fft2(f1 .* in);
+end
 
-subplot(2,2,1);
-plot(lambda*1e9,S,'LineWidth',2);
-xlabel('Wavelength (nm)');
-ylabel('Normalized power');
-title('SLD Spectrum');
-grid on;
-
-subplot(2,2,2);
-plot(OPD*1e6,abs(gamma),'LineWidth',2);
-hold on;
-xline(Lc*1e6,'--r','1/e coherence length');
-xlabel('OPD (\mum)');
-ylabel('|\gamma(OPD)|');
-title('Temporal Coherence Function');
-grid on;
-
-subplot(2,2,3);
-plot(x*1e3,I_Laser(1,:),'--','LineWidth',1.5);
-hold on;
-plot(x*1e3,I_SLD(1,:),'LineWidth',1.5);
-xlabel('Position (mm)');
-ylabel('Intensity');
-title('OPD = 0 \mum');
-legend('Monochromatic laser','SLD');
-grid on;
-
-subplot(2,2,4);
-plot(x*1e3,I_Laser(2,:),'--','LineWidth',1.5);
-hold on;
-plot(x*1e3,I_SLD(2,:),'LineWidth',1.5);
-xlabel('Position (mm)');
-ylabel('Intensity');
-title('OPD = 20 \mum');
-legend('Monochromatic laser','SLD');
-grid on;
-
-sgtitle('Low Temporal Coherence Validation');
-
-fprintf('Approximate 1/e coherence length: %.2f um\n',Lc*1e6);
-fprintf('Coherence at OPD = 20 um: %.4f\n', ...
-    abs(sum(S.*exp(1i*2*pi*20e-6./lambda))/sum(S)));
-% 
+function out = IFT2Dc(in)
+    [Nx, Ny] = size(in);
+    f1 = ((-1).^(1:Nx).') * ((-1).^(1:Ny));
+    out = f1 .* ifft2(f1 .* in);
+end
